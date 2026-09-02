@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Heart, Search, ShoppingBag, UserRound, ArrowRight, BookOpen, Instagram, MessageCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Heart, Search, ShoppingBag, UserRound, ArrowRight, BookOpen, MessageCircle } from 'lucide-react';
 
 const categories = [
   { name: 'Creatina', slug: 'creatina' },
@@ -23,6 +23,16 @@ const learning = [
   { title: 'Receitas com whey', text: 'Ideias simples para variar seu shake e suas refeições.' },
   { title: 'Como utilizar o pré-treino?', text: 'Informações para aproveitar melhor seu produto.' },
 ];
+
+function InstagramIcon({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 function Placeholder({ label, className = '' }: { label: string; className?: string }) {
   return <div className={`placeholder ${className}`} aria-label={`Espaço reservado para ${label}`}><span>{label}</span></div>;
@@ -162,7 +172,7 @@ export default function App() {
 
         <section className="section final-section">
           <div className="container final-grid">
-            <a className="final-card dark" href="https://instagram.com/capitaosuplementosoficial"><Instagram /><div><small>SIGA A CAPITÃO</small><strong>Instagram</strong><span>@capitaosuplementosoficial <ArrowRight size={15} /></span></div></a>
+            <a className="final-card dark" href="https://instagram.com/capitaosuplementosoficial"><InstagramIcon /><div><small>SIGA A CAPITÃO</small><strong>Instagram</strong><span>@capitaosuplementosoficial <ArrowRight size={15} /></span></div></a>
             <a className="final-card gold" href="https://wa.me/5592985828394"><MessageCircle /><div><small>FALE COM A CAPITÃO</small><strong>WhatsApp</strong><span>(92) 98582-8394 <ArrowRight size={15} /></span></div></a>
             <a className="final-card light" href="#beneficios"><span className="reward-symbol">R$</span><div><small>PROGRAMA DE FIDELIDADE</small><strong>Compre sempre, ganhe mais</strong><span>Conheça seus benefícios <ArrowRight size={15} /></span></div></a>
           </div>
