@@ -24,6 +24,13 @@ const learning = [
   { title: 'Como utilizar o pré-treino?', text: 'Informações para aproveitar melhor seu produto.' },
 ];
 
+const goals = [
+  { name: 'Ganho de Massa', slug: 'ganho-de-massa', image: '/banner-ganho-de-massa.png' },
+  { name: 'Emagrecimento', slug: 'emagrecimento', image: '/banner-emagrecimento.png' },
+  { name: 'Saúde e Bem-Estar', slug: 'saude-e-bem-estar', image: '/banner-saude-bem-estar.png' },
+  { name: 'Definição Muscular', slug: 'definicao-muscular', image: '/banner-definicao-muscular.png' },
+];
+
 function InstagramIcon({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -140,8 +147,14 @@ export default function App() {
           <div className="container">
             <SectionHeading eyebrow="Escolha seu caminho" title="QUAL É O SEU OBJETIVO?" />
             <div className="goal-grid">
-              {['GANHO DE MASSA', 'EMAGRECIMENTO', 'SAÚDE E BEM-ESTAR', 'DEFINIÇÃO MUSCULAR'].map(goal => (
-                <a href={`/objetivo/${goal.toLowerCase().replaceAll(' ', '-')}`} key={goal} className="goal-banner"><Placeholder label="BANNER KLAUS / REBECA" /><strong>{goal}</strong><span>Ver produtos <ArrowRight size={15} /></span></a>
+              {goals.map(goal => (
+                <a href={`/objetivo/${goal.slug}`} key={goal.slug} className="goal-banner" aria-label={`Ver produtos para ${goal.name}`}>
+                  <img
+                    src={goal.image}
+                    alt={goal.name}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+                  />
+                </a>
               ))}
             </div>
           </div>
