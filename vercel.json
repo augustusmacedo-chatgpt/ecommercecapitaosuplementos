@@ -1,0 +1,10 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/categoria/:path*", "destination": "/index.html" },
+    { "source": "/objetivo/:path*", "destination": "/index.html" },
+    { "source": "/marca/:path*", "destination": "/index.html" }
+  ]
+}
