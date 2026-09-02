@@ -72,7 +72,7 @@ export default function App() {
       <header className="header">
         <div className="header-main container">
           <a className="brand" href="#top" aria-label="Capitão Suplementos">
-            <Placeholder label="LOGO CAPITÃO" className="logo-placeholder" />
+            <img className="logo-image" src="/Logo_Capit%C3%A3o_Esportivo.png" alt="Capitão Suplementos" />
           </a>
 
           <div className="search-wrap">
