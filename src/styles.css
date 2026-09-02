@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-:root { font-family: Inter, Arial, sans-serif; color: #171717; background: #f3f3f1; font-synthesis: none; }
+:root { font-family: 'Plus Jakarta Sans', Arial, sans-serif; color: #171717; background: #f3f3f1; font-synthesis: none; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: #f3f3f1; }
@@ -13,7 +13,7 @@ button { cursor: pointer; }
 .header { background: #fff; position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
 .header-main { min-height: 84px; display: grid; grid-template-columns: minmax(170px, 1fr) minmax(300px, 500px) minmax(170px, 1fr); align-items: center; gap: 30px; position: relative; }
 .brand { display: block; width: 170px; }
-.logo-placeholder { height: 56px !important; width: 170px; border: 0 !important; background-color: transparent !important; background-image: url('/Logo_Capit%C3%A3o_Esportivo.png') !important; background-repeat: no-repeat !important; background-position: left center !important; background-size: contain !important; color: transparent !important; font-size: 0 !important; filter: drop-shadow(0 2px 4px rgba(0,0,0,.22)); }
+.logo-placeholder { height: 56px !important; width: 170px; border: 0 !important; background-color: transparent !important; background-image: url('/Logo_Capitao_Esportivo.png') !important; background-repeat: no-repeat !important; background-position: left center !important; background-size: contain !important; color: transparent !important; font-size: 0 !important; filter: drop-shadow(0 2px 4px rgba(0,0,0,.22)); }
 .logo-placeholder span { display: none; }
 .logo-image { display: block; width: 170px; height: 56px; object-fit: contain; object-position: left center; filter: drop-shadow(0 2px 4px rgba(0,0,0,.22)); }
 .search-wrap { height: 42px; width: 100%; border: 1px solid #deddd9; background: #f7f7f5; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: #777; justify-self: center; }
@@ -41,7 +41,7 @@ button { cursor: pointer; }
 .section-tinted { background: #f3f3f1; }
 .section-heading { margin-bottom: 24px; }
 .section-heading p { margin: 0 0 6px; color: #a77b1d; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
-.section-heading h2 { margin: 0; font-family: Oswald, Arial, sans-serif; font-size: clamp(27px, 3vw, 40px); letter-spacing: -.02em; text-transform: uppercase; font-weight: 600; }
+.section-heading h2 { margin: 0; font-size: clamp(27px, 3vw, 40px); letter-spacing: -.02em; text-transform: uppercase; font-weight: 800; }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
 .product-card { background: #fff; border-radius: 4px; box-shadow: 0 8px 22px rgba(0,0,0,.10); overflow: hidden; min-width: 0; }
 .product-media { position: relative; height: 285px; padding: 18px; }
@@ -65,7 +65,7 @@ button { cursor: pointer; }
 .goal-banner { position: relative; overflow: hidden; min-height: 260px; background: #1b1b1b; color: #fff; }
 .goal-banner:nth-child(even) { background: #eeeae2; color: #171717; }
 .goal-banner .placeholder { position: absolute; inset: 0; height: 100%; border: 0; background: transparent; color: rgba(255,255,255,.3); }
-.goal-banner strong { position: absolute; left: 26px; bottom: 52px; max-width: 65%; font-family: Oswald, Arial, sans-serif; font-size: clamp(26px,4vw,55px); line-height: .95; text-transform: uppercase; }
+.goal-banner strong { position: absolute; left: 26px; bottom: 52px; max-width: 65%; font-size: clamp(26px,4vw,55px); line-height: .95; text-transform: uppercase; font-weight: 800; }
 .goal-banner span { position: absolute; left: 26px; bottom: 22px; color: inherit; }
 .brands-section { padding-bottom: 54px; }
 .brand-list { display: grid; grid-template-columns: repeat(5,1fr); border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; }
@@ -85,14 +85,14 @@ button { cursor: pointer; }
 .final-card.light { background: #f1efe8; }
 .final-card div { display: flex; flex-direction: column; }
 .final-card small { font-size: 9px; font-weight: 800; letter-spacing: .13em; opacity: .7; }
-.final-card strong { font-family: Oswald, Arial, sans-serif; font-size: 25px; text-transform: uppercase; margin: 5px 0; }
+.final-card strong { font-size: 25px; text-transform: uppercase; margin: 5px 0; font-weight: 800; }
 .final-card span:last-child { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
 .benefits-float { position: fixed; right: 22px; bottom: 22px; z-index: 30; width: 96px; height: 96px; border-radius: 50%; border: 3px solid #171717; background: #1a0505; color: #fff; box-shadow: 0 7px 24px rgba(0,0,0,.25); display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(-3deg); }
 .benefits-float span { background: #d52424; width: 100%; font-size: 9px; font-weight: 900; padding: 5px 0; }
 .benefits-float strong { font-size: 11px; line-height: 1.05; }
 .footer { background: #171717; color: #fff; padding: 50px 0 20px; }
 .footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; }
-.footer-logo { font-family: Oswald, Arial, sans-serif; font-size: 27px; line-height: .8; font-weight: 700; }
+.footer-logo { font-size: 27px; line-height: .8; font-weight: 800; }
 .footer-logo span { color: #c89b2d; font-size: 14px; }
 .footer p { color: #c89b2d; font-size: 10px; letter-spacing: .14em; font-weight: 800; }
 .footer h4 { font-size: 10px; letter-spacing: .14em; color: #c89b2d; margin: 0 0 14px; }
