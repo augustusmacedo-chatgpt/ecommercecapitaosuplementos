@@ -13,7 +13,7 @@ button { cursor: pointer; }
 .header { background: #fff; position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
 .header-main { min-height: 84px; display: grid; grid-template-columns: minmax(170px, 1fr) minmax(300px, 500px) minmax(170px, 1fr); align-items: center; gap: 30px; position: relative; }
 .brand { display: block; width: 170px; }
-.logo-placeholder { height: 56px !important; width: 170px; border: 0 !important; background-color: transparent !important; background-image: url('/Logo%20Letreiro.png') !important; background-repeat: no-repeat !important; background-position: left center !important; background-size: contain !important; color: transparent !important; font-size: 0 !important; filter: drop-shadow(0 2px 4px rgba(0,0,0,.22)); }
+.logo-placeholder { height: 56px !important; width: 170px; border: 0 !important; background-color: transparent !important; background-image: url('/Logo%20Letreito.png') !important; background-repeat: no-repeat !important; background-position: left center !important; background-size: contain !important; color: transparent !important; font-size: 0 !important; filter: drop-shadow(0 2px 4px rgba(0,0,0,.22)); }
 .logo-placeholder span { display: none; }
 .search-wrap { height: 42px; width: 100%; border: 1px solid #deddd9; background: #f7f7f5; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: #777; justify-self: center; }
 .search-wrap input { border: 0; outline: 0; background: transparent; width: 100%; color: #171717; }
