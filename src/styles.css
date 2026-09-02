@@ -11,11 +11,11 @@ button { cursor: pointer; }
 .announcement { height: 34px; display: flex; justify-content: center; align-items: center; gap: 9px; background: #171717; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .13em; }
 .announcement span { color: #d1a536; }
 .header { background: #fff; position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
-.header-main { min-height: 84px; display: grid; grid-template-columns: 220px minmax(300px, 500px) auto; align-items: center; gap: 30px; }
+.header-main { min-height: 84px; display: grid; grid-template-columns: 1fr minmax(300px, 500px) 1fr; align-items: center; gap: 30px; }
 .brand { display: block; width: 170px; }
 .logo-placeholder { height: 56px !important; width: 170px; border: 0 !important; background-color: transparent !important; background-image: url('/capitao-letreiro.webp') !important; background-repeat: no-repeat !important; background-position: center !important; background-size: contain !important; color: transparent !important; font-size: 0 !important; }
 .logo-placeholder span { display: none; }
-.search-wrap { height: 42px; border: 1px solid #deddd9; background: #f7f7f5; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: #777; }
+.search-wrap { height: 42px; width: 100%; border: 1px solid #deddd9; background: #f7f7f5; display: flex; align-items: center; gap: 10px; padding: 0 14px; color: #777; justify-self: center; }
 .search-wrap input { border: 0; outline: 0; background: transparent; width: 100%; color: #171717; }
 .search-wrap input::placeholder { color: #969696; }
 .header-actions { display: flex; justify-content: flex-end; align-items: center; gap: 16px; }
