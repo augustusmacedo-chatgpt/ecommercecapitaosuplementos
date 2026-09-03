@@ -1,36 +1,73 @@
-import { CONFIG_COOKIE, json, parseCookies, readJsonBody, seal, unseal, type BlingConfig } from './bling-shared.js';
+import { json, readJsonBody, type BlingConfig } from '../../src/server/bling-shared.js';
+import { hasPersistentStorage, loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
 
-export default async function handler(request: Request) {
+function storageUnavailable() {
+  return json(
+    { error: 'Armazenamento persistente do Bling ainda não está conectado na Vercel.' },
+    503,
+  );
+}
+
+function errorResponse(error: unknown) {
+  console.error('Bling config error:', error);
+  return json(
+    {
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível processar a configuração do Bling.',
+    },
+    500,
+  );
+}
+
+export async function GET() {
   try {
-    const cookies = parseCookies(request);
-    const current = await unseal<BlingConfig>(cookies[CONFIG_COOKIE]);
+    if (!hasPersistentStorage()) return storageUnavailable();
 
-    if (request.method === 'GET') {
-      return json({
+    const current = await loadStoredData();
+    return json(
+      {
         configured: Boolean(current?.clientId && current.clientSecret),
         clientId: current?.clientId || '',
         inviteLink: current?.inviteLink || '',
         secretConfigured: Boolean(current?.clientSecret),
-      }, 200, { 'Cache-Control': 'no-store' });
-    }
+      },
+      200,
+      { 'Cache-Control': 'no-store' },
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
 
-    if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
+export async function POST(request: Request) {
+  try {
+    if (!hasPersistentStorage()) return storageUnavailable();
 
-    const body = await readJsonBody(request) as Partial<BlingConfig>;
+    const current = await loadStoredData();
+    const body = (await readJsonBody(request)) as Partial<BlingConfig>;
     const clientId = body.clientId?.trim() || current?.clientId || '';
     const clientSecret = body.clientSecret?.trim() || current?.clientSecret || '';
     const inviteLink = body.inviteLink?.trim() || current?.inviteLink || '';
 
-    if (!clientId || !clientSecret) return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+    if (!clientId || !clientSecret) {
+      return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+    }
 
-    const value: BlingConfig = { clientId, clientSecret, inviteLink };
-    const sealed = await seal(value);
-    return json({ ok: true, configured: true, clientId: value.clientId, secretConfigured: true, inviteLink: value.inviteLink }, 200, {
-      'Set-Cookie': `${CONFIG_COOKIE}=${encodeURIComponent(sealed)}; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax`,
-      'Cache-Control': 'no-store',
+    await saveStoredData({
+      clientId,
+      clientSecret,
+      inviteLink,
+      refreshToken: current?.refreshToken,
     });
+
+    return json(
+      { ok: true, configured: true, clientId, secretConfigured: true, inviteLink },
+      200,
+      { 'Cache-Control': 'no-store' },
+    );
   } catch (error) {
-    console.error('Bling config error:', error);
-    return json({ error: 'Não foi possível carregar a configuração do Bling.' }, 500);
+    return errorResponse(error);
   }
 }
