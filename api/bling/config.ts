@@ -2,6 +2,15 @@ const CONFIG_COOKIE = 'capitao_bling_config';
 
 type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
 
+type CookieRequest = {
+  method?: string;
+  headers?: {
+    get?: (name: string) => string | null;
+    cookie?: string | string[];
+  };
+  body?: unknown;
+};
+
 function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -9,8 +18,12 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 }
 
-function parseCookies(request: Request) {
-  const raw = request.headers.get('cookie') || '';
+function parseCookies(request: CookieRequest) {
+  const headers = request.headers;
+  let raw = '';
+  if (headers?.get) raw = headers.get('cookie') || '';
+  else if (headers?.cookie) raw = Array.isArray(headers.cookie) ? headers.cookie.join('; ') : headers.cookie;
+
   const result: Record<string, string> = {};
   for (const part of raw.split(';')) {
     if (!part.trim()) continue;
@@ -75,7 +88,7 @@ async function unseal<T>(value?: string): Promise<T | null> {
   }
 }
 
-export default async function handler(request: Request) {
+export default async function handler(request: CookieRequest) {
   const cookies = parseCookies(request);
   const current = await unseal<BlingConfig>(cookies[CONFIG_COOKIE]);
 
@@ -91,7 +104,8 @@ export default async function handler(request: Request) {
   if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
 
   try {
-    const body = await request.json() as Partial<BlingConfig>;
+    const rawBody = request.body;
+    const body = (typeof rawBody === 'string' ? JSON.parse(rawBody) : (rawBody || {})) as Partial<BlingConfig>;
     const clientId = body.clientId?.trim() || current?.clientId || '';
     const clientSecret = body.clientSecret?.trim() || current?.clientSecret || '';
     const inviteLink = body.inviteLink?.trim() || current?.inviteLink || '';
