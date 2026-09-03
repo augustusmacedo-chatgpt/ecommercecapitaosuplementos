@@ -17,29 +17,41 @@ export default function Admin() {
   const [configured, setConfigured] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(true);
   const [error, setError] = useState('');
   const [showClientId, setShowClientId] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [inviteLink, setInviteLink] = useState('');
+  const [secretConfigured, setSecretConfigured] = useState(false);
 
   const mediaClass = useMemo(() => `admin-product-media fit-${fit} bg-${background}`, [fit, background]);
 
   useEffect(() => {
-    fetch('/api/bling/status', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        setConnected(Boolean(data.connected));
-        setConfigured(Boolean(data.configured));
+    Promise.all([
+      fetch('/api/bling/config', { cache: 'no-store' }).then(res => res.json()),
+      fetch('/api/bling/status', { cache: 'no-store' }).then(res => res.json()),
+    ])
+      .then(([config, status]) => {
+        setClientId(config.clientId || '');
+        setInviteLink(config.inviteLink || '');
+        setSecretConfigured(Boolean(config.secretConfigured));
+        setConfigured(Boolean(config.configured));
+        setConnected(Boolean(status.connected));
       })
-      .catch(() => setError('Não foi possível consultar o status do Bling.'));
+      .catch(() => setError('Não foi possível carregar a configuração do Bling.'))
+      .finally(() => setLoadingConfig(false));
   }, []);
 
   async function saveConfiguration() {
     setError('');
-    if (!clientId.trim() || !clientSecret.trim()) {
-      setError('Informe o Client ID e o Client Secret.');
+    if (!clientId.trim()) {
+      setError('Informe o Client ID.');
+      return;
+    }
+    if (!clientSecret.trim() && !secretConfigured) {
+      setError('Informe o Client Secret.');
       return;
     }
     try {
@@ -51,8 +63,9 @@ export default function Admin() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Não foi possível salvar.');
       setConfigured(true);
-      setSaved(true);
+      setSecretConfigured(true);
       setClientSecret('');
+      setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar a configuração.');
@@ -96,7 +109,7 @@ export default function Admin() {
             <div className="bling-field">
               <label>Client ID</label>
               <div className="bling-input-wrap">
-                <input type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder={configured ? 'Credencial já salva — informe apenas se quiser substituir' : 'Informe o Client ID'} autoComplete="off" />
+                <input type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder={loadingConfig ? 'Carregando...' : 'Informe o Client ID'} autoComplete="off" />
                 <button type="button" aria-label={showClientId ? 'Ocultar Client ID' : 'Mostrar Client ID'} onClick={() => setShowClientId(v => !v)}>{showClientId ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
@@ -104,7 +117,7 @@ export default function Admin() {
             <div className="bling-field">
               <label>Client Secret</label>
               <div className="bling-input-wrap">
-                <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder="•••••••••••••••••••••••••••••••" autoComplete="new-password" />
+                <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder={secretConfigured ? '•••••••••••••••••••••••••••••••' : 'Informe o Client Secret'} autoComplete="new-password" />
                 <button type="button" aria-label={showSecret ? 'Ocultar Client Secret' : 'Mostrar Client Secret'} onClick={() => setShowSecret(v => !v)}>{showSecret ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
@@ -127,7 +140,7 @@ export default function Admin() {
 
           <div className="bling-config-footer">
             <p><span>🔒</span> O Client Secret é armazenado de forma protegida e nunca é devolvido ao navegador em texto aberto.</p>
-            <button className="admin-primary" onClick={saveConfiguration}>
+            <button className="admin-primary" onClick={saveConfiguration} disabled={loadingConfig}>
               <Save size={15} /> {saved ? 'Configuração salva' : 'Salvar configuração'}
             </button>
           </div>
@@ -142,7 +155,7 @@ export default function Admin() {
               <p>{connected ? 'Aplicativo autorizado. A conexão agora usa OAuth 2.0 com JWT no servidor.' : 'Salve as credenciais e autorize a aplicação na sua conta Bling.'}</p>
             </div>
             <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : 'Aguardando'}</div>
-            <button className="admin-primary" onClick={connectBling} disabled={connecting}>
+            <button className="admin-primary" onClick={connectBling} disabled={connecting || loadingConfig}>
               {connecting ? <RefreshCw size={16} className="spin" /> : <Zap size={16} />}
               {connecting ? 'Abrindo Bling...' : connected ? 'Reconectar Bling' : 'Conectar Bling'}
             </button>
