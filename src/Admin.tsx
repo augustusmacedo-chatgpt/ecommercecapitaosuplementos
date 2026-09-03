@@ -48,7 +48,7 @@ export default function Admin() {
   const [inviteLink, setInviteLink] = useState('');
   const [secretConfigured, setSecretConfigured] = useState(false);
   const [blingProducts, setBlingProducts] = useState<PreviewProduct[]>([]);
-  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogTotal, setCatalogTotal] = useState<number | null>(null);
   const [catalogError, setCatalogError] = useState('');
   const clientIdInputRef = useRef<HTMLInputElement>(null);
   const clientSecretInputRef = useRef<HTMLInputElement>(null);
@@ -77,11 +77,12 @@ export default function Admin() {
           if (active) setConnected(isConnected);
           if (isConnected) {
             try {
-              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=100&todos=1', { cache: 'no-store' });
+              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=100', { cache: 'no-store' });
               const productsData = await readJson(productsResponse);
               if (active) {
-                setCatalogTotal(Number(productsData.total ?? productsData.products?.length ?? 0));
-                setBlingProducts((productsData.products || []).slice(0, 4).map(toPreviewProduct));
+                const returnedProducts = Array.isArray(productsData.products) ? productsData.products : [];
+                setCatalogTotal(Number(productsData.total ?? returnedProducts.length));
+                setBlingProducts(returnedProducts.slice(0, 4).map(toPreviewProduct));
                 setCatalogError('');
               }
             } catch (productError) {
@@ -234,7 +235,7 @@ export default function Admin() {
               <h2>Produtos</h2>
               <p>{catalogError || (blingProducts.length ? `Prévia dos produtos reais carregados do catálogo completo do Bling (${catalogTotal} no total).` : 'Prévia de como os produtos sincronizados serão apresentados na loja.')}</p>
             </div>
-            <div className="admin-stat"><strong>{connected ? catalogTotal : '—'}</strong><span>produtos sincronizados</span></div>
+            <div className="admin-stat"><strong>{connected ? (catalogTotal === null ? '…' : catalogTotal) : '—'}</strong><span>produtos sincronizados</span></div>
           </article>
         </section>
 
