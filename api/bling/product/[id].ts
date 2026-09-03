@@ -1,5 +1,5 @@
-import { json } from '../../src/server/bling-shared.js';
-import { getBlingAccessToken } from '../../src/server/bling-client.js';
+import { json } from '../../../src/server/bling-shared.js';
+import { getBlingAccessToken } from '../../../src/server/bling-client.js';
 export async function GET(request: Request) {
   const id = new URL(request.url).pathname.split('/').pop();
   if (!id || !/^\d+$/.test(id)) return json({ error: 'Produto inválido.' }, 400);
