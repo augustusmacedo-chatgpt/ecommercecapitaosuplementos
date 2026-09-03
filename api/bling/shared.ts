@@ -5,7 +5,7 @@ const STATE_COOKIE = 'capitao_bling_oauth_state';
 export const BLING_REDIRECT_URI = 'https://ecommercecapitaosuplementos.vercel.app/api/bling/callback';
 export { CONFIG_COOKIE, REFRESH_COOKIE, STATE_COOKIE };
 
-type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
+export type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
 
 function getSecret() {
   const secret = process.env.BLING_CONFIG_SECRET;
@@ -78,13 +78,17 @@ export function cookie(name: string, value: string, options: { maxAge?: number; 
   return parts.join('; ');
 }
 
-export function clearCookie(name: string) { return cookie(name, '', { maxAge: 0 }); }
+export function clearCookie(name: string) {
+  return cookie(name, '', { maxAge: 0 });
+}
 
 export function json(data: unknown, status = 200, extraHeaders: Record<string, string | string[]> = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders },
-  });
+  const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
+  for (const [name, value] of Object.entries(extraHeaders)) {
+    if (Array.isArray(value)) value.forEach(item => headers.append(name, item));
+    else headers.set(name, value);
+  }
+  return new Response(JSON.stringify(data), { status, headers });
 }
 
 export async function readJsonBody(request: Request) {
@@ -100,5 +104,3 @@ export function redirect(location: string, cookies: string[] = []) {
   for (const value of cookies) headers.append('Set-Cookie', value);
   return new Response(null, { status: 302, headers });
 }
-
-export type { BlingConfig };
