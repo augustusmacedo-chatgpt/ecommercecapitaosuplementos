@@ -20,6 +20,7 @@ A validação anterior confirmou `GET /api/bling/status` com HTTP 200, `configur
 | Estoque | O saldo virtual do Bling é exibido em cada card. Produtos com saldo zero aparecem como `ESGOTADO` e não permitem abrir o produto. |
 | Produto | Produtos disponíveis recebem link `/produto/{id}` como ponto de entrada para a futura página de detalhe. |
 | Imagens | Imagens passam a carregar com `loading="lazy"` para reduzir custo de carregamento. |
+| Nitidez | A vitrine não amplia mais imagens abaixo da resolução original; a API de listagem do Bling forneceu uma miniatura real de 70×70 px para o produto testado. |
 | Estados da UI | Foram adicionadas mensagens de carregamento, erro, quantidade encontrada e resultado vazio. |
 | Atualização automática | Foi criado `POST /api/bling/webhook` com validação HMAC, proteção contra evento duplicado e registro seguro do último evento. |
 | Duplicação visual | As seções continuam preservando a identidade do layout, mas usam chaves estáveis e o mesmo catálogo filtrado. |
@@ -70,6 +71,8 @@ O armazenamento atual usa o caminho fixo `bling/capitao-credentials.json`. A sol
 Não foram implementados exportação de pedidos, sincronização periódica, pagamento, frete ou baixa de estoque. O receptor de webhooks foi implementado, mas ainda não existe uma fila de processamento ou cache persistente de catálogo. Essas funcionalidades dependem de decisões comerciais e de um modelo de pedido.
 
 Não copiar credenciais, tokens ou o conteúdo do Blob para o GitHub, Markdown, logs ou mensagens.
+
+As imagens da listagem de produtos podem vir como miniaturas pequenas do Bling. O teste realizado encontrou uma imagem JPEG de 70×70 px. Ampliar esse arquivo inevitavelmente causa desfoque. A vitrine agora preserva o tamanho máximo nativo para priorizar nitidez. Para ocupar cards maiores com qualidade, a próxima evolução deve consultar a imagem original na rota de detalhe do produto ou armazenar uma versão de alta resolução autorizada pelo Bling; não aplicar upscale artificial no navegador.
 
 ## Deploy
 
