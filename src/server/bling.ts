@@ -44,6 +44,7 @@ export async function unseal<T>(value?: string): Promise<T | null> {
   if (!value) return null;
   try {
     const packed = base64ToBytes(value);
+    if (packed.length <= 12) return null;
     const iv = packed.slice(0, 12);
     const encrypted = packed.slice(12);
     const key = await keyFromSecret();
@@ -56,10 +57,20 @@ export async function unseal<T>(value?: string): Promise<T | null> {
 
 export function parseCookies(request: Request) {
   const raw = request.headers.get('cookie') || '';
-  return Object.fromEntries(raw.split(';').filter(Boolean).map(part => {
+  const result: Record<string, string> = {};
+  for (const part of raw.split(';')) {
+    if (!part.trim()) continue;
     const index = part.indexOf('=');
-    return [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1).trim())];
-  }));
+    if (index < 0) continue;
+    const name = part.slice(0, index).trim();
+    const encodedValue = part.slice(index + 1).trim();
+    try {
+      result[name] = decodeURIComponent(encodedValue);
+    } catch {
+      result[name] = encodedValue;
+    }
+  }
+  return result;
 }
 
 export function cookie(name: string, value: string, options: { maxAge?: number; httpOnly?: boolean; sameSite?: string; secure?: boolean; path?: string } = {}) {
