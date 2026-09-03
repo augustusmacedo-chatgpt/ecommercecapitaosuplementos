@@ -48,6 +48,7 @@ export default function Admin() {
   const [inviteLink, setInviteLink] = useState('');
   const [secretConfigured, setSecretConfigured] = useState(false);
   const [blingProducts, setBlingProducts] = useState<PreviewProduct[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogError, setCatalogError] = useState('');
   const clientIdInputRef = useRef<HTMLInputElement>(null);
   const clientSecretInputRef = useRef<HTMLInputElement>(null);
@@ -76,10 +77,11 @@ export default function Admin() {
           if (active) setConnected(isConnected);
           if (isConnected) {
             try {
-              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=4', { cache: 'no-store' });
+              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=100&todos=1', { cache: 'no-store' });
               const productsData = await readJson(productsResponse);
               if (active) {
-                setBlingProducts((productsData.products || []).map(toPreviewProduct));
+                setCatalogTotal(Number(productsData.total ?? productsData.products?.length ?? 0));
+                setBlingProducts((productsData.products || []).slice(0, 4).map(toPreviewProduct));
                 setCatalogError('');
               }
             } catch (productError) {
@@ -230,9 +232,9 @@ export default function Admin() {
             <div className="panel-copy">
               <span className="panel-label">CATÁLOGO</span>
               <h2>Produtos</h2>
-              <p>{catalogError || (blingProducts.length ? 'Produtos reais carregados do catálogo do Bling.' : 'Prévia de como os produtos sincronizados serão apresentados na loja.')}</p>
+              <p>{catalogError || (blingProducts.length ? `Prévia dos produtos reais carregados do catálogo completo do Bling (${catalogTotal} no total).` : 'Prévia de como os produtos sincronizados serão apresentados na loja.')}</p>
             </div>
-            <div className="admin-stat"><strong>{connected ? blingProducts.length : '—'}</strong><span>produtos sincronizados</span></div>
+            <div className="admin-stat"><strong>{connected ? catalogTotal : '—'}</strong><span>produtos sincronizados</span></div>
           </article>
         </section>
 
@@ -264,7 +266,7 @@ export default function Admin() {
             {(blingProducts.length ? blingProducts : mockProducts).map(product => (
               <article className="admin-product-card" key={product.name}>
                   <div className={mediaClass}>
-                  {product.image ? <img className="bling-original-image" src={product.image} alt={product.name} style={{ objectFit: fit }} /> : <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>}
+                  {product.image ? <img className="bling-original-image" src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: fit }} /> : <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>}
                 </div>
                 <div className="admin-product-info">
                   <span>{product.brand}</span>
