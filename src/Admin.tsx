@@ -264,7 +264,7 @@ export default function Admin() {
             {(blingProducts.length ? blingProducts : mockProducts).map(product => (
               <article className="admin-product-card" key={product.name}>
                   <div className={mediaClass}>
-                  {product.image ? <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: fit }} /> : <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>}
+                  {product.image ? <img className="bling-original-image" src={product.image} alt={product.name} style={{ objectFit: fit }} /> : <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>}
                 </div>
                 <div className="admin-product-info">
                   <span>{product.brand}</span>

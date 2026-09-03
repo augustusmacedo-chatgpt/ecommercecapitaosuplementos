@@ -46,6 +46,7 @@ button { cursor: pointer; }
 .product-card { background: #fff; border-radius: 4px; box-shadow: 0 8px 22px rgba(0,0,0,.10); overflow: hidden; min-width: 0; }
 .product-unavailable { opacity: .78; }
 .product-media { position: relative; height: 285px; padding: 18px; }
+.product-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
 .product-media .placeholder { width: 100%; height: 100%; border: 0; background: #fafafa; }
 .badge { position: absolute; top: 12px; left: 12px; z-index: 2; padding: 6px 8px; border-radius: 3px; background: #c79b2f; color: #111; font-size: 9px; font-weight: 800; }
 .badge-muted { background: #777; color: #fff; }
@@ -169,6 +170,9 @@ button { cursor: pointer; }
 .admin-product-media.bg-dark { background: #171717; }
 .admin-product-media.fit-contain .admin-image-placeholder { width: 72%; height: 72%; }
 .admin-product-media.fit-cover .admin-image-placeholder { width: 100%; height: 100%; }
+.bling-original-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-position: center; }
+.admin-product-media.fit-contain .bling-original-image { width: auto !important; height: auto !important; }
+.admin-product-media.fit-cover .bling-original-image { width: 100%; height: 100%; }
 .admin-image-placeholder { border: 1px dashed #bbb8b0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 7px; color: #888; text-align: center; }
 .bg-dark .admin-image-placeholder { border-color: #555; color: #aaa; }
 .admin-image-placeholder span { font-size: 9px; font-weight: 800; letter-spacing: .1em; }
