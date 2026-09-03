@@ -212,3 +212,5 @@ button { cursor: pointer; }
 .quantity-picker { display:flex; align-items:center; justify-content:center; gap:20px; margin:10px 0; border:1px solid #ddd; height:36px; }
 .quantity-picker button { border:0; background:none; font-size:22px; line-height:1; width:35px; height:100%; }
 .quantity-picker strong { min-width:20px; text-align:center; }
+.cart-summary { display:flex; justify-content:space-between; align-items:center; margin:20px 0; padding-top:16px; border-top:1px solid #ddd; font-size:13px; }
+.cart-summary strong { font-size:22px; }
