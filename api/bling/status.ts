@@ -1,0 +1,14 @@
+import { json } from './bling-shared.js';
+import { loadStoredData } from './bling-store.js';
+
+export default async function handler(request: Request) {
+  if (request.method !== 'GET') return json({ error: 'Método não permitido.' }, 405);
+  try {
+    const data = await loadStoredData();
+    return json({ configured: Boolean(data?.clientId && data.clientSecret), connected: Boolean(data?.refreshToken), clientId: data?.clientId ? mask(data.clientId) : '' }, 200, { 'Cache-Control': 'no-store' });
+  } catch (error) {
+    console.error('Bling status error:', error);
+    return json({ configured: false, connected: false, clientId: '', error: error instanceof Error ? error.message : 'Armazenamento persistente indisponível.' }, 503);
+  }
+}
+function mask(value: string) { if (value.length <= 8) return '••••••••'; return `${value.slice(0, 4)}${'•'.repeat(Math.min(20, value.length - 8))}${value.slice(-4)}`; }
