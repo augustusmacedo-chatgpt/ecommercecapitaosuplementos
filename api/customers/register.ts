@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       console.error('Bling contact registration rejected:', response.status, details.slice(0, 1000));
       const duplicate = /documento|cpf|cnpj|já cadastrado|duplicad/i.test(details);
       let blingMessage = '';
-      try { const parsed = JSON.parse(details); blingMessage = String(parsed.error?.message || parsed.message || parsed.error || '').slice(0, 180); } catch { /* resposta não-JSON */ }
+      try { const parsed = JSON.parse(details); const errors = Array.isArray(parsed.error) ? parsed.error.map((item: any) => item.message || item.description || item.mensagem || item).join('; ') : ''; blingMessage = String(errors || parsed.error?.message || parsed.error?.description || parsed.message || parsed.mensagem || parsed.error || '').slice(0, 240); } catch { /* resposta não-JSON */ }
       return json({ error: response.status === 401 || response.status === 403 ? 'O aplicativo do Bling não tem permissão para cadastrar contatos. Habilite o escopo de Contatos e reconecte o aplicativo.' : duplicate ? 'Este CPF/CNPJ já está cadastrado no Bling. Tente entrar com seu e-mail ou use “Esqueci minha senha”.' : `O Bling rejeitou os dados do cadastro.${blingMessage ? ` Motivo: ${blingMessage}` : ' Confira CPF/CNPJ, CEP e endereço.'}` }, response.status === 401 || response.status === 403 ? 403 : 422);
     }
     const result = await response.json() as { data?: { id?: number } };
