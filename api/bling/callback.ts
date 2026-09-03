@@ -10,11 +10,11 @@ export default async function handler(request: Request) {
   const cookies = parseCookies(request);
   const expectedState = cookies[STATE_COOKIE];
 
-  if (error) return new Response(errorPage('A autorização no Bling não foi concluída.'), { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
-  if (!code || !returnedState || !expectedState || returnedState !== expectedState) return new Response(errorPage('Não foi possível validar a autorização. Tente conectar novamente.'), { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
+  if (error) return fail('A autorização no Bling não foi concluída.');
+  if (!code || !returnedState || !expectedState || returnedState !== expectedState) return fail('Não foi possível validar a autorização. Tente conectar novamente.');
 
   const config = await unseal<BlingConfig>(cookies[CONFIG_COOKIE]);
-  if (!config?.clientId || !config.clientSecret) return new Response(errorPage('As credenciais do aplicativo não estão configuradas.'), { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
+  if (!config?.clientId || !config.clientSecret) return fail('As credenciais do aplicativo não estão configuradas.');
 
   try {
     const basic = btoa(`${config.clientId}:${config.clientSecret}`);
@@ -25,30 +25,29 @@ export default async function handler(request: Request) {
     });
 
     if (!tokenResponse.ok) {
-      const detail = await tokenResponse.text();
-      console.error('Bling OAuth token error:', tokenResponse.status, detail);
-      return new Response(errorPage('O Bling recusou a troca do código de autorização. Confira o Client ID, Client Secret e a URL de redirecionamento.'), { status: 502, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
+      console.error('Bling OAuth token error:', tokenResponse.status, await tokenResponse.text());
+      return fail('O Bling recusou a troca do código de autorização. Confira o Client ID, Client Secret e a URL de redirecionamento.', 502);
     }
 
     const tokens = await tokenResponse.json() as { refresh_token?: string };
-    if (!tokens.refresh_token) return new Response(errorPage('O Bling não retornou um refresh token.'), { status: 502, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
+    if (!tokens.refresh_token) return fail('O Bling não retornou um refresh token.', 502);
 
     const sealedRefreshToken = await seal(tokens.refresh_token);
     const redirect = new URL('/admin', BLING_REDIRECT_URI);
     redirect.searchParams.set('bling', 'connected');
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: redirect.toString(),
-        'Set-Cookie': `${REFRESH_COOKIE}=${encodeURIComponent(sealedRefreshToken)}; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax, ${clearCookie(STATE_COOKIE)}`,
-        'Cache-Control': 'no-store',
-      },
-    });
+    const headers = new Headers({ Location: redirect.toString(), 'Cache-Control': 'no-store' });
+    headers.append('Set-Cookie', cookie(REFRESH_COOKIE, sealedRefreshToken, { maxAge: 2592000 }));
+    headers.append('Set-Cookie', clearCookie(STATE_COOKIE));
+    return new Response(null, { status: 302, headers });
   } catch (err) {
     console.error('Bling OAuth callback error:', err);
-    return new Response(errorPage('Não foi possível concluir a conexão com o Bling.'), { status: 502, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE) } });
+    return fail('Não foi possível concluir a conexão com o Bling.', 502);
   }
+}
+
+function fail(message: string, status = 400) {
+  return new Response(errorPage(message), { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(STATE_COOKIE), 'Cache-Control': 'no-store' } });
 }
 
 function errorPage(message: string) {
