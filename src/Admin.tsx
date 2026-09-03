@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Image as ImageIcon, RefreshCw, Save, Settings2, ShoppingBag, SlidersHorizontal, Zap } from 'lucide-react';
 
 const mockProducts = [
@@ -33,6 +33,9 @@ export default function Admin() {
   const [clientSecret, setClientSecret] = useState('');
   const [inviteLink, setInviteLink] = useState('');
   const [secretConfigured, setSecretConfigured] = useState(false);
+  const clientIdInputRef = useRef<HTMLInputElement>(null);
+  const clientSecretInputRef = useRef<HTMLInputElement>(null);
+  const inviteLinkInputRef = useRef<HTMLInputElement>(null);
 
   const mediaClass = useMemo(() => `admin-product-media fit-${fit} bg-${background}`, [fit, background]);
 
@@ -69,11 +72,19 @@ export default function Admin() {
 
   async function saveConfiguration() {
     setError('');
-    if (!clientId.trim()) {
+    // Password managers/autofill may update the DOM without firing React's onChange.
+    // Read the live input values so the payload cannot be empty while the fields look filled.
+    const currentClientId = clientIdInputRef.current?.value ?? clientId;
+    const currentClientSecret = clientSecretInputRef.current?.value ?? clientSecret;
+    const currentInviteLink = inviteLinkInputRef.current?.value ?? inviteLink;
+    setClientId(currentClientId);
+    setClientSecret(currentClientSecret);
+    setInviteLink(currentInviteLink);
+    if (!currentClientId.trim()) {
       setError('Informe o Client ID.');
       return;
     }
-    if (!clientSecret.trim() && !secretConfigured) {
+    if (!currentClientSecret.trim() && !secretConfigured) {
       setError('Informe o Client Secret.');
       return;
     }
@@ -81,7 +92,7 @@ export default function Admin() {
       const response = await fetch('/api/bling/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, inviteLink }),
+        body: JSON.stringify({ clientId: currentClientId, clientSecret: currentClientSecret, inviteLink: currentInviteLink }),
       });
       const data = await readJson(response);
       setConfigured(Boolean(data.configured));
@@ -131,7 +142,7 @@ export default function Admin() {
             <div className="bling-field">
               <label>Client ID</label>
               <div className="bling-input-wrap">
-                <input type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder={loadingConfig ? 'Carregando...' : 'Informe o Client ID'} autoComplete="off" />
+                <input ref={clientIdInputRef} type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder={loadingConfig ? 'Carregando...' : 'Informe o Client ID'} autoComplete="off" />
                 <button type="button" aria-label={showClientId ? 'Ocultar Client ID' : 'Mostrar Client ID'} onClick={() => setShowClientId(v => !v)}>{showClientId ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
@@ -139,14 +150,14 @@ export default function Admin() {
             <div className="bling-field">
               <label>Client Secret</label>
               <div className="bling-input-wrap">
-                <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder={secretConfigured ? '•••••••••••••••••••••••••••••••' : 'Informe o Client Secret'} autoComplete="new-password" />
+                <input ref={clientSecretInputRef} type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder={secretConfigured ? '•••••••••••••••••••••••••••••••' : 'Informe o Client Secret'} autoComplete="new-password" />
                 <button type="button" aria-label={showSecret ? 'Ocultar Client Secret' : 'Mostrar Client Secret'} onClick={() => setShowSecret(v => !v)}>{showSecret ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
 
             <div className="bling-field bling-field-wide">
               <label>Link de convite</label>
-              <input value={inviteLink} onChange={e => setInviteLink(e.target.value)} placeholder="https://www.bling.com.br/..." autoComplete="off" />
+              <input ref={inviteLinkInputRef} value={inviteLink} onChange={e => setInviteLink(e.target.value)} placeholder="https://www.bling.com.br/..." autoComplete="off" />
             </div>
 
             <div className="bling-field bling-field-wide">
