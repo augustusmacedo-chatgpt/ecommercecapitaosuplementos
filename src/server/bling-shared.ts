@@ -20,10 +20,21 @@ export function cookie(name: string, value: string, options: { maxAge?: number; 
 export function clearCookie(name: string) { return `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`; }
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers } }); }
 export async function readJsonBody(request: RequestLike) {
-  const body = request.body;
+  const body: unknown = (request as unknown as { body?: unknown }).body;
   if (body !== undefined && body !== null) {
-    if (typeof body === 'object') return body;
-    if (typeof body === 'string' && body.trim()) { try { return JSON.parse(body); } catch { throw new Error('JSON inválido.'); } }
+    if (typeof body === 'string' && body.trim()) {
+      try { return JSON.parse(body); } catch { throw new Error('JSON inválido.'); }
+    }
+    if (typeof body === 'object') {
+      const streamLike = typeof (body as { getReader?: unknown }).getReader === 'function'
+        || typeof (body as { pipe?: unknown }).pipe === 'function'
+        || typeof (body as { on?: unknown }).on === 'function';
+      if (!streamLike) return body;
+    }
+  }
+  if (typeof (request as Request & { json?: unknown }).json === 'function') {
+    try { return await (request as Request & { json: () => Promise<unknown> }).json(); }
+    catch { throw new Error('JSON inválido.'); }
   }
   if (typeof request.text === 'function') {
     const text = await request.text();
