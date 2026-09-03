@@ -72,7 +72,7 @@ Não foram implementados exportação de pedidos, sincronização periódica, pa
 
 Não copiar credenciais, tokens ou o conteúdo do Blob para o GitHub, Markdown, logs ou mensagens.
 
-As imagens da listagem de produtos podem vir como miniaturas pequenas do Bling. O teste realizado encontrou uma imagem JPEG de 70×70 px. Ampliar esse arquivo inevitavelmente causa desfoque. A vitrine agora preserva o tamanho máximo nativo para priorizar nitidez. Para ocupar cards maiores com qualidade, a próxima evolução deve consultar a imagem original na rota de detalhe do produto ou armazenar uma versão de alta resolução autorizada pelo Bling; não aplicar upscale artificial no navegador.
+As imagens da listagem de produtos podem vir como miniaturas pequenas do Bling. O teste realizado encontrou uma imagem JPEG de 70×70 px. A vitrine usa `object-fit: contain` para ampliar proporcionalmente sem corte ou deformação, e `mix-blend-mode: multiply` para integrar visualmente fundos brancos ao card. Isso não substitui uma imagem original de alta resolução. A próxima evolução deve consultar a imagem original na rota de detalhe do produto ou armazenar uma versão de alta resolução autorizada pelo Bling; não aplicar remoção automática de fundo em miniaturas porque isso pode apagar detalhes do produto.
 
 ## Deploy
 
