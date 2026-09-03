@@ -17,7 +17,8 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const details = await response.text();
       console.error('Bling contact registration rejected:', response.status, details.slice(0, 1000));
-      return json({ error: response.status === 401 || response.status === 403 ? 'O aplicativo do Bling não tem permissão para cadastrar contatos. Habilite o escopo de Contatos e reconecte o aplicativo.' : 'O Bling rejeitou os dados do cadastro. Confira CPF/CNPJ, CEP e endereço.' }, response.status === 401 || response.status === 403 ? 403 : 422);
+      const duplicate = /documento|cpf|cnpj|já cadastrado|duplicad/i.test(details);
+      return json({ error: response.status === 401 || response.status === 403 ? 'O aplicativo do Bling não tem permissão para cadastrar contatos. Habilite o escopo de Contatos e reconecte o aplicativo.' : duplicate ? 'Este CPF/CNPJ já está cadastrado no Bling. Tente entrar com seu e-mail ou use “Esqueci minha senha”.' : 'O Bling rejeitou os dados do cadastro. Confira CPF/CNPJ, CEP e endereço.' }, response.status === 401 || response.status === 403 ? 403 : 422);
     }
     const result = await response.json() as { data?: { id?: number } };
     await saveCustomer({ id: randomUUID(), email, passwordHash: hashPassword(String(body.password)), name: String(body.name), phone: String(body.phone), document, birthDate: String(body.birthDate), address: { street: String(body.street), number: String(body.number), complement: String(body.complement || ''), district: String(body.district), city: String(body.city), state: String(body.state), zip: String(body.zip) }, observation: String(body.observation || ''), blingContactId: result.data?.id, createdAt: new Date().toISOString() });
