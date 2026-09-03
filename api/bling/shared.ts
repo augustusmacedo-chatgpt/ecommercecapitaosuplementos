@@ -20,8 +20,7 @@ function bytesToBase64(bytes: Uint8Array) {
 }
 
 function base64ToBytes(value: string) {
-  const binary = atob(value);
-  return Uint8Array.from(binary, char => char.charCodeAt(0));
+  return Uint8Array.from(atob(value), char => char.charCodeAt(0));
 }
 
 async function keyFromSecret() {
@@ -55,23 +54,17 @@ export async function unseal<T>(value?: string): Promise<T | null> {
   }
 }
 
-export function parseCookies(request: any) {
-  const headers = request?.headers;
-  const raw = typeof headers?.get === 'function'
-    ? headers.get('cookie') || ''
-    : headers?.cookie || headers?.Cookie || '';
+export function parseCookies(request: Request) {
+  const raw = request.headers.get('cookie') || '';
   const result: Record<string, string> = {};
-  for (const part of String(raw).split(';')) {
+  for (const part of raw.split(';')) {
     if (!part.trim()) continue;
     const index = part.indexOf('=');
     if (index < 0) continue;
     const name = part.slice(0, index).trim();
     const encodedValue = part.slice(index + 1).trim();
-    try {
-      result[name] = decodeURIComponent(encodedValue);
-    } catch {
-      result[name] = encodedValue;
-    }
+    try { result[name] = decodeURIComponent(encodedValue); }
+    catch { result[name] = encodedValue; }
   }
   return result;
 }
@@ -85,31 +78,27 @@ export function cookie(name: string, value: string, options: { maxAge?: number; 
   return parts.join('; ');
 }
 
-export function clearCookie(name: string) {
-  return cookie(name, '', { maxAge: 0 });
+export function clearCookie(name: string) { return cookie(name, '', { maxAge: 0 }); }
+
+export function json(data: unknown, status = 200, extraHeaders: Record<string, string | string[]> = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders },
+  });
 }
 
-export function sendJson(res: any, data: unknown, status = 200, extraHeaders: Record<string, string | string[]> = {}) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  for (const [name, value] of Object.entries(extraHeaders)) res.setHeader(name, value);
-  res.end(JSON.stringify(data));
+export async function readJsonBody(request: Request) {
+  try {
+    return await request.json();
+  } catch {
+    return {};
+  }
 }
 
-export async function readJsonBody(request: any) {
-  if (request?.body && typeof request.body === 'object') return request.body;
-  if (typeof request?.body === 'string' && request.body) return JSON.parse(request.body);
-  let raw = '';
-  for await (const chunk of request) raw += chunk.toString();
-  return raw ? JSON.parse(raw) : {};
-}
-
-export function redirect(res: any, location: string, cookies: string[] = []) {
-  res.statusCode = 302;
-  res.setHeader('Location', location);
-  if (cookies.length) res.setHeader('Set-Cookie', cookies);
-  res.setHeader('Cache-Control', 'no-store');
-  res.end();
+export function redirect(location: string, cookies: string[] = []) {
+  const headers = new Headers({ Location: location, 'Cache-Control': 'no-store' });
+  for (const value of cookies) headers.append('Set-Cookie', value);
+  return new Response(null, { status: 302, headers });
 }
 
 export type { BlingConfig };

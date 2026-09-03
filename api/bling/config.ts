@@ -1,12 +1,12 @@
-import { CONFIG_COOKIE, sendJson, parseCookies, readJsonBody, seal, unseal, type BlingConfig } from './shared.js';
+import { CONFIG_COOKIE, json, parseCookies, readJsonBody, seal, unseal, type BlingConfig } from './shared';
 
-export default async function handler(request: any, response: any) {
+export default async function handler(request: Request) {
   try {
     const cookies = parseCookies(request);
     const current = await unseal<BlingConfig>(cookies[CONFIG_COOKIE]);
 
     if (request.method === 'GET') {
-      return sendJson(response, {
+      return json({
         configured: Boolean(current?.clientId && current.clientSecret),
         clientId: current?.clientId || '',
         inviteLink: current?.inviteLink || '',
@@ -14,23 +14,23 @@ export default async function handler(request: any, response: any) {
       }, 200, { 'Cache-Control': 'no-store' });
     }
 
-    if (request.method !== 'POST') return sendJson(response, { error: 'Método não permitido.' }, 405);
+    if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
 
     const body = await readJsonBody(request) as Partial<BlingConfig>;
     const clientId = body.clientId?.trim() || current?.clientId || '';
     const clientSecret = body.clientSecret?.trim() || current?.clientSecret || '';
     const inviteLink = body.inviteLink?.trim() || current?.inviteLink || '';
 
-    if (!clientId || !clientSecret) return sendJson(response, { error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+    if (!clientId || !clientSecret) return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
 
     const value: BlingConfig = { clientId, clientSecret, inviteLink };
     const sealed = await seal(value);
-    return sendJson(response, { ok: true, configured: true, clientId: value.clientId, secretConfigured: true, inviteLink: value.inviteLink }, 200, {
+    return json({ ok: true, configured: true, clientId: value.clientId, secretConfigured: true, inviteLink: value.inviteLink }, 200, {
       'Set-Cookie': `${CONFIG_COOKIE}=${encodeURIComponent(sealed)}; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax`,
       'Cache-Control': 'no-store',
     });
   } catch (error) {
     console.error('Bling config error:', error);
-    return sendJson(response, { error: 'Não foi possível carregar a configuração do Bling.' }, 500);
+    return json({ error: 'Não foi possível carregar a configuração do Bling.' }, 500);
   }
 }
