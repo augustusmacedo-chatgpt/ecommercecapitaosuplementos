@@ -1,5 +1,5 @@
 import { get, put } from '@vercel/blob';
-import type { BlingConfig } from './bling-shared';
+import type { BlingConfig } from './bling-shared.js';
 const PATH = 'bling/capitao-credentials.json';
 export type BlingStoredData = BlingConfig & { refreshToken?: string };
 function storageError() { return new Error('Armazenamento persistente do Bling não está conectado. Conecte um Vercel Blob privado ao projeto.'); }
