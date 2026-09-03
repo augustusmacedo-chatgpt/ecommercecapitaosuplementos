@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (await loadCustomer(email)) return json({ error: 'Já existe um cadastro com este e-mail.' }, 409);
     const token = await getBlingAccessToken();
     const document = String(body.document).replace(/\D/g, '');
-    const response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers: { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nome: body.name, tipoPessoa: document.length === 14 ? 'J' : 'F', numeroDocumento: document, email, telefone: body.phone, endereco: { endereco: body.street, numero: body.number, complemento: body.complement, bairro: body.district, municipio: body.city, uf: body.state, cep: body.zip }, observacoes: body.observation }) });
+    const response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers: { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nome: body.name, tipoPessoa: document.length === 14 ? 'J' : 'F', numeroDocumento: document, email, telefone: body.phone, celular: body.phone, endereco: { endereco: body.street, numero: body.number, complemento: body.complement, bairro: body.district, municipio: body.city, uf: body.state, cep: body.zip, pais: 'Brasil' }, observacoes: body.observation }) });
     if (!response.ok) {
       const details = await response.text();
       console.error('Bling contact registration rejected:', response.status, details.slice(0, 1000));
