@@ -14,10 +14,10 @@ export async function POST(request: Request) {
     const token = await getBlingAccessToken();
     const document = String(body.document).replace(/\D/g, '');
     const headers = { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-    const fullPayload = { nome: body.name, tipo: document.length === 14 ? 'J' : 'F', numeroDocumento: document, indicadorIe: document.length === 14 ? 9 : undefined, ie: body.stateRegistration || undefined, email, telefone: body.phone, dadosAdicionais: body.birthDate ? { dataNascimento: body.birthDate } : undefined, endereco: { geral: { endereco: body.street, numero: body.number, complemento: body.complement, bairro: body.district, municipio: body.city, uf: body.state, cep: body.zip } } };
+    const fullPayload = { nome: body.name, fantasia: document.length === 14 ? body.name : undefined, tipoPessoa: document.length === 14 ? 'J' : 'F', numeroDocumento: document, contribuinte: document.length === 14 ? 9 : undefined, inscricaoEstadual: body.stateRegistration || undefined, email, telefone: body.phone, endereco: { geral: { endereco: body.street, numero: body.number, complemento: body.complement, bairro: body.district, municipio: body.city, uf: body.state, cep: body.zip } }, dadosAdicionais: body.birthDate ? { dataNascimento: body.birthDate } : undefined };
     let response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers, body: JSON.stringify(fullPayload) });
     if (!response.ok && response.status === 400) {
-      response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers, body: JSON.stringify({ nome: body.name, tipo: fullPayload.tipo, numeroDocumento: document, email, telefone: body.phone, endereco: fullPayload.endereco }) });
+      response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers, body: JSON.stringify({ nome: body.name, tipo: document.length === 14 ? 'J' : 'F', numeroDocumento: document, email, telefone: body.phone, endereco: fullPayload.endereco }) });
     }
     if (!response.ok) {
       const details = await response.text();
