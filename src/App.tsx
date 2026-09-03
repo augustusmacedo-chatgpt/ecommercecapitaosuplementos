@@ -31,7 +31,7 @@ type BlingApiProduct = {
   imagemURL?: string;
   imagens?: Array<{ link?: string; url?: string }>;
   categoria?: { nome?: string };
-  estoque?: { saldoVirtualTotal?: number };
+  estoque?: { saldoVirtualTotal?: number; depositos?: Array<{ saldo?: number; quantidade?: number }> };
   situacao?: string;
 };
 
@@ -39,6 +39,8 @@ const fallbackProducts: SiteProduct[] = [
   { id: 1, name: 'Produto em destaque', category: 'Creatina', price: 'R$ 00,00', badge: 'DESTAQUE', tags: ['PERFORMANCE'], stock: 0 },
   { id: 2, name: 'Produto em destaque', category: 'Whey Protein', price: 'R$ 00,00', badge: 'MAIS VENDIDO', tags: ['GANHO DE MASSA'], stock: 0 },
 ];
+
+function totalStock(stock?: { saldoVirtualTotal?: number; depositos?: Array<{ saldo?: number; quantidade?: number }> }) { if (Array.isArray(stock?.depositos)) return stock.depositos.reduce((sum, item) => sum + Number(item.saldo ?? item.quantidade ?? 0), 0); return Number(stock?.saldoVirtualTotal ?? 0); }
 
 function formatBlingPrice(value?: number) {
   return typeof value === 'number' && Number.isFinite(value)
@@ -56,7 +58,7 @@ function toSiteProduct(product: BlingApiProduct, index: number): SiteProduct {
     badge: product.situacao === 'A' ? 'CATÁLOGO BLING' : 'INDISPONÍVEL',
     tags: [product.codigo || 'CATÁLOGO REAL'],
     image,
-    stock: Number(product.estoque?.saldoVirtualTotal ?? 0),
+    stock: totalStock(product.estoque),
     code: product.codigo,
   };
 }
