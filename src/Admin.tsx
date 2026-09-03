@@ -77,7 +77,7 @@ export default function Admin() {
           if (active) setConnected(isConnected);
           if (isConnected) {
             try {
-              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=100', { cache: 'no-store' });
+              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=100&todos=1', { cache: 'no-store' });
               const productsData = await readJson(productsResponse);
               if (active) {
                 const returnedProducts = Array.isArray(productsData.products) ? productsData.products : [];
