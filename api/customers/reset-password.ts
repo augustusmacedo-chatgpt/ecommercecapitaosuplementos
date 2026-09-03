@@ -1,4 +1,0 @@
-import { createHash } from 'node:crypto';
-import { json, readJsonBody } from '../../src/server/bling-shared.js';
-import { loadCustomer, saveCustomer, hashPassword } from '../../src/server/customer-store.js';
-export async function POST(request:Request){try{const b=await readJsonBody(request) as {email?:string;token?:string;password?:string};const c=await loadCustomer(String(b.email||''));if(!c||!b.token||!b.password||c.resetTokenHash!==createHash('sha256').update(b.token).digest('hex')||(c.resetTokenExpiresAt||0)<Date.now()||b.password.length<8)return json({error:'Link inválido ou expirado.'},400);await saveCustomer({...c,passwordHash:hashPassword(b.password),resetTokenHash:undefined,resetTokenExpiresAt:undefined});return json({reset:true})}catch(e){return json({error:'Não foi possível redefinir a senha.'},400)}}
