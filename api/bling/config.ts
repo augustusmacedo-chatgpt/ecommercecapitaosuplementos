@@ -1,4 +1,4 @@
-import { CONFIG_COOKIE, json, parseCookies, seal, unseal, type BlingConfig } from '../../src/server/bling';
+import { CONFIG_COOKIE, json, parseCookies, seal, unseal, type BlingConfig } from './shared.js';
 
 export default async function handler(request: Request) {
   const cookies = parseCookies(request);
