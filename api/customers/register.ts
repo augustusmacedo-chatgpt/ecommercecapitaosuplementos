@@ -14,7 +14,11 @@ export async function POST(request: Request) {
     const token = await getBlingAccessToken();
     const document = String(body.document).replace(/\D/g, '');
     const response = await fetch('https://api.bling.com.br/Api/v3/contatos', { method: 'POST', headers: { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nome: body.name, tipoPessoa: document.length === 14 ? 'J' : 'F', numeroDocumento: document, email, telefone: body.phone, endereco: { endereco: body.street, numero: body.number, complemento: body.complement, bairro: body.district, municipio: body.city, uf: body.state, cep: body.zip }, observacoes: body.observation }) });
-    if (!response.ok) return json({ error: 'Não foi possível vincular o cadastro ao Bling.' }, 502);
+    if (!response.ok) {
+      const details = await response.text();
+      console.error('Bling contact registration rejected:', response.status, details.slice(0, 1000));
+      return json({ error: response.status === 401 || response.status === 403 ? 'O aplicativo do Bling não tem permissão para cadastrar contatos. Habilite o escopo de Contatos e reconecte o aplicativo.' : 'O Bling rejeitou os dados do cadastro. Confira CPF/CNPJ, CEP e endereço.' }, response.status === 401 || response.status === 403 ? 403 : 422);
+    }
     const result = await response.json() as { data?: { id?: number } };
     await saveCustomer({ id: randomUUID(), email, passwordHash: hashPassword(String(body.password)), name: String(body.name), phone: String(body.phone), document, birthDate: String(body.birthDate), address: { street: String(body.street), number: String(body.number), complement: String(body.complement || ''), district: String(body.district), city: String(body.city), state: String(body.state), zip: String(body.zip) }, observation: String(body.observation || ''), blingContactId: result.data?.id, createdAt: new Date().toISOString() });
     return json({ created: true, blingContactId: result.data?.id });
