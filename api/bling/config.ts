@@ -1,4 +1,4 @@
-import { CONFIG_COOKIE, json, parseCookies, readJsonBody, seal, unseal, type BlingConfig } from './shared';
+import { CONFIG_COOKIE, json, parseCookies, readJsonBody, seal, unseal, type BlingConfig } from './bling-shared';
 
 export default async function handler(request: Request) {
   try {
