@@ -14,6 +14,8 @@ export type CustomerRecord = {
   observation: string;
   blingContactId?: number;
   createdAt: string;
+  resetTokenHash?: string;
+  resetTokenExpiresAt?: number;
 };
 export function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 export function customerKey(email: string) { return `${PATH_PREFIX}${createHash('sha256').update(normalizeEmail(email)).digest('hex')}.json`; }
