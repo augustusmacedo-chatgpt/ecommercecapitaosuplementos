@@ -21,6 +21,7 @@ A validação anterior confirmou `GET /api/bling/status` com HTTP 200, `configur
 | Produto | Produtos disponíveis recebem link `/produto/{id}` como ponto de entrada para a futura página de detalhe. |
 | Imagens | Imagens passam a carregar com `loading="lazy"` para reduzir custo de carregamento. |
 | Estados da UI | Foram adicionadas mensagens de carregamento, erro, quantidade encontrada e resultado vazio. |
+| Atualização automática | Foi criado `POST /api/bling/webhook` com validação HMAC, proteção contra evento duplicado e registro seguro do último evento. |
 | Duplicação visual | As seções continuam preservando a identidade do layout, mas usam chaves estáveis e o mesmo catálogo filtrado. |
 | Documentação | Este arquivo registra decisões, limites e próximos passos para o MestreGPT. |
 
@@ -28,6 +29,8 @@ A validação anterior confirmou `GET /api/bling/status` com HTTP 200, `configur
 
 - `src/App.tsx`: busca, filtros, estoque, indisponibilidade, links e estados do catálogo.
 - `src/styles.css`: estilos para produtos esgotados, badges, toolbar, mensagens e estado vazio.
+- `api/bling/webhook.ts`: endpoint oficial para receber eventos de produto e estoque do Bling.
+- `src/server/bling-store.ts`: metadados do último webhook, sem armazenar payload sensível.
 - `HANDOFF_MESTREGPT_BLING.md`: este handoff.
 
 ## Validação executada
@@ -52,11 +55,19 @@ A paginação completa do Bling também permanece pendente. A implementação at
 
 O botão de reconexão OAuth já existe. Ainda falta implementar desconexão segura: revogar ou limpar access token e refresh token sem apagar Client ID e Client Secret. Essa operação deve exigir uma confirmação explícita na interface porque encerra a conexão atual.
 
+## Atualização automática via webhook
+
+O Bling envia eventos em tempo real quando um produto ou estoque é criado, atualizado ou removido. O endpoint publicado é `https://ecommercecapitaosuplementos.vercel.app/api/bling/webhook`. Ele valida o cabeçalho `X-Bling-Signature-256` com o Client Secret, aceita eventos repetidos sem erro e registra somente o ID e o horário do último evento no Blob privado.
+
+Para ativar o envio, abrir o aplicativo da Capitão no painel de desenvolvedores do Bling, habilitar os escopos de produto e estoque, cadastrar o endpoint acima na aba Webhooks e selecionar os eventos `created`, `updated` e `deleted` para Produto e `updated` para Estoque/Estoque Virtual. Essa configuração externa ainda precisa ser feita manualmente no painel do Bling.
+
+Mesmo sem webhook, a loja já busca o catálogo diretamente no Bling a cada carregamento e sem cache de navegador. Portanto, uma alteração feita no Bling aparece no próximo carregamento da loja. O webhook melhora a arquitetura para futuras rotinas de cache ou sincronização persistente; ele não precisa disparar uma nova consulta agora.
+
 ## Limites e decisões preservadas
 
 O armazenamento atual usa o caminho fixo `bling/capitao-credentials.json`. A solução continua preparada para uma conta Bling por projeto. Multi-conta exige autenticação de administrador, identificador de loja e isolamento dos caminhos no Blob.
 
-Não foram implementados webhooks, exportação de pedidos, sincronização periódica, pagamento, frete ou baixa de estoque. Essas funcionalidades dependem de decisões comerciais e de um modelo de pedido.
+Não foram implementados exportação de pedidos, sincronização periódica, pagamento, frete ou baixa de estoque. O receptor de webhooks foi implementado, mas ainda não existe uma fila de processamento ou cache persistente de catálogo. Essas funcionalidades dependem de decisões comerciais e de um modelo de pedido.
 
 Não copiar credenciais, tokens ou o conteúdo do Blob para o GitHub, Markdown, logs ou mensagens.
 
@@ -81,3 +92,4 @@ curl -sS -w '\nHTTP:%{http_code}\n' 'https://ecommercecapitaosuplementos.vercel.
 
 [1]: https://developer.bling.com.br/aplicativos "Bling Developer — Aplicativos e fluxo OAuth"  
 [2]: https://developer.bling.com.br/referencia "Bling Developer — Referência da API v3"
+[3]: https://developer.bling.com.br/webhooks "Bling Developer — Webhooks"
