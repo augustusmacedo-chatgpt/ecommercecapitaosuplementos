@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import Admin from './Admin';
 import App from './App';
-
-export default function Root() {
-  return window.location.pathname.startsWith('/admin') ? <Admin /> : <App />;
-}
+import { ArrowLeft } from 'lucide-react';
+import './styles.css';
+function ProductPage({ id }: { id: string }) { const [data, setData] = useState<any>(null); const [error, setError] = useState(''); useEffect(() => { fetch(`/api/bling/product/${id}`).then(r => r.json()).then(setData).catch(() => setError('Não foi possível carregar o produto.')); }, [id]); const p=data?.product; return <main className="product-page container"><a href="/" className="back-link"><ArrowLeft size={16}/> Voltar para a loja</a>{error && <p>{error}</p>}{p ? <article className="product-detail"><div className="product-detail-image">{p.imagemURL && <img src={p.imagemURL} alt={p.nome}/>}</div><div><span className="panel-label">CATÁLOGO BLING</span><h1>{p.nome}</h1><strong>{typeof p.preco === 'number' ? p.preco.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : 'Consultar'}</strong><p dangerouslySetInnerHTML={{__html:p.descricaoCurta || 'Produto disponível na Capitão Suplementos.'}}/><button className="product-button">ADICIONAR À SACOLA</button></div></article> : !error && <p>Carregando produto...</p>}</main>; }
+export default function Root() { const path=window.location.pathname; if (path.startsWith('/admin')) return <Admin/>; const match=path.match(/^\/produto\/(\d+)/); return match ? <ProductPage id={match[1]}/> : <App/>; }

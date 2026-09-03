@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Heart, MessageCircle, Search, ShoppingBag, UserRound } from 'lucide-react';
+import { ArrowRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Heart, MessageCircle, Search, ShoppingBag, UserRound, X } from 'lucide-react';
 
 const categories = [
   { name: 'Creatina', slug: 'creatina' },
@@ -86,7 +86,7 @@ function InstagramIcon({ size = 24 }: { size?: number }) {
 function Placeholder({ label, className = '' }: { label: string; className?: string }) {
   return <div className={`placeholder ${className}`} aria-label={`Espaço reservado para ${label}`}><span>{label}</span></div>;
 }
-function ProductCard({ product }: { product: SiteProduct }) {
+function ProductCard({ product, onAdd }: { product: SiteProduct; onAdd: (product: SiteProduct) => void }) {
   const unavailable = product.stock <= 0;
   return <article className={`product-card ${unavailable ? 'product-unavailable' : ''}`}>
     <div className="product-media">
@@ -99,7 +99,7 @@ function ProductCard({ product }: { product: SiteProduct }) {
       <h3>{product.name}</h3>
       <strong>{product.price}</strong>
       <small>{unavailable ? 'Sem estoque no momento' : `Estoque disponível: ${product.stock}`}</small>
-      <a className={`product-button ${unavailable ? 'disabled' : ''}`} href={unavailable ? undefined : `/produto/${product.id}`} aria-disabled={unavailable}>{unavailable ? 'INDISPONÍVEL' : 'VER PRODUTO'}</a>
+      <button className={`product-button ${unavailable ? 'disabled' : ''}`} onClick={() => !unavailable && onAdd(product)} disabled={unavailable}>{unavailable ? 'INDISPONÍVEL' : 'ADICIONAR À SACOLA'}</button><a className="product-detail-link" href={`/produto/${product.id}`}>VER PRODUTO</a>
     </div>
   </article>;
 }
@@ -111,6 +111,10 @@ export default function App() {
   const [blingProducts, setBlingProducts] = useState<SiteProduct[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cart, setCart] = useState<SiteProduct[]>(() => { try { return JSON.parse(localStorage.getItem('capitao-cart') || '[]'); } catch { return []; } });
+  const addToCart = (product: SiteProduct) => { setCart(current => { const next = [...current, product]; localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; }); setCartOpen(true); };
+  const removeFromCart = (id: number) => setCart(current => { const next = current.filter(item => item.id !== id); localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; });
 
   useEffect(() => {
     let active = true;
@@ -137,12 +141,12 @@ export default function App() {
   const renderProducts = (badge?: string) => {
     const items = visibleProducts.slice(0, 8).map(product => badge ? { ...product, badge } : product);
     if (!items.length) return <p className="catalog-empty">Nenhum produto encontrado. Tente outro nome ou categoria.</p>;
-    return <div className="product-grid">{items.map(product => <ProductCard key={`${badge || 'catalog'}-${product.id}`} product={product} />)}</div>;
+    return <div className="product-grid">{items.map(product => <ProductCard key={`${badge || 'catalog'}-${product.id}`} product={product} onAdd={addToCart} />)}</div>;
   };
 
   return <div className="site-shell">
     <div className="announcement">ASSUMA O COMANDO <span>•</span> ENTREGA EXCLUSIVA EM MANAUS <span>•</span> PAGAMENTO NA ENTREGA</div>
-    <header className="header"><div className="header-main container"><a className="brand" href="#top" aria-label="Capitão Suplementos"><img className="logo-image" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a><div className="search-wrap"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por whey, creatina, pré..." aria-label="Buscar produtos" /></div><div className="header-actions"><button aria-label="Minha conta"><UserRound size={20} /><span>Login</span></button><button aria-label="Favoritos"><Heart size={20} /></button><button className="bag" aria-label="Sacola"><ShoppingBag size={20} /><b>0</b></button></div></div><nav className="category-nav"><div className="container nav-inner"><a href="#produtos" onClick={() => chooseCategory('')}>TODOS OS PRODUTOS <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('whey')}>WHEY PROTEIN <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('creatina')}>CREATINA</a><a href="#produtos" onClick={() => chooseCategory('pré')}>PRÉ-TREINO</a><a href="#produtos">KITS PROMOCIONAIS</a><a href="#objetivos">OBJETIVOS <ChevronDown size={14} /></a></div></nav></header>
+    <header className="header"><div className="header-main container"><a className="brand" href="#top" aria-label="Capitão Suplementos"><img className="logo-image" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a><div className="search-wrap"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por whey, creatina, pré..." aria-label="Buscar produtos" /></div><div className="header-actions"><button aria-label="Minha conta"><UserRound size={20} /><span>Login</span></button><button aria-label="Favoritos"><Heart size={20} /></button><button className="bag" aria-label="Sacola" onClick={() => setCartOpen(true)}><ShoppingBag size={20} /><b>{cart.length}</b></button></div></div><nav className="category-nav"><div className="container nav-inner"><a href="#produtos" onClick={() => chooseCategory('')}>TODOS OS PRODUTOS <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('whey')}>WHEY PROTEIN <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('creatina')}>CREATINA</a><a href="#produtos" onClick={() => chooseCategory('pré')}>PRÉ-TREINO</a><a href="#produtos">KITS PROMOCIONAIS</a><a href="#objetivos">OBJETIVOS <ChevronDown size={14} /></a></div></nav></header>
     <main id="top">
       <section className="hero-banner container"><button className="carousel-arrow left" onClick={() => setSlide((slide + 2) % 3)} aria-label="Banner anterior"><ChevronLeft /></button><Placeholder label={`BANNER PRINCIPAL ${slide + 1}`} /><button className="carousel-arrow right" onClick={() => setSlide((slide + 1) % 3)} aria-label="Próximo banner"><ChevronRight /></button><div className="dots">{[0, 1, 2].map(index => <i className={index === slide ? 'active' : ''} key={index} />)}</div></section>
       <section className="section section-tinted" id="destaques"><div className="container"><SectionHeading eyebrow="O que está em evidência" title="🔥 DESTAQUES DA CAPITÃO" /><CatalogNotice loading={catalogLoading} error={catalogError} count={availableProducts.length} />{renderProducts()}</div></section>
