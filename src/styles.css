@@ -208,3 +208,7 @@ button { cursor: pointer; }
 .product-detail h1 { font-size:32px; }
 .product-detail > div > strong { font-size:28px; }
 @media(max-width:680px){.product-detail{grid-template-columns:1fr}.product-detail-image{min-height:280px}}
+
+.quantity-picker { display:flex; align-items:center; justify-content:center; gap:20px; margin:10px 0; border:1px solid #ddd; height:36px; }
+.quantity-picker button { border:0; background:none; font-size:22px; line-height:1; width:35px; height:100%; }
+.quantity-picker strong { min-width:20px; text-align:center; }
