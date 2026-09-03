@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CheckCircle2, Image as ImageIcon, RefreshCw, Settings2, ShoppingBag, SlidersHorizontal, Zap } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Image as ImageIcon, RefreshCw, Save, Settings2, ShoppingBag, SlidersHorizontal, Zap } from 'lucide-react';
 
 const mockProducts = [
   { name: 'Creatina 300g', brand: 'Produto Bling', price: 'R$ 00,00', image: '' },
@@ -13,6 +13,12 @@ export default function Admin() {
   const [background, setBackground] = useState<'white' | 'soft' | 'dark'>('white');
   const [connected, setConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [showClientId, setShowClientId] = useState(false);
+  const [showClientSecret, setShowClientSecret] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const mediaClass = useMemo(() => `admin-product-media fit-${fit} bg-${background}`, [fit, background]);
 
@@ -22,6 +28,11 @@ export default function Admin() {
       setSyncing(false);
       setConnected(true);
     }, 900);
+  }
+
+  function saveBlingSettings() {
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2200);
   }
 
   return (
@@ -36,13 +47,78 @@ export default function Admin() {
       </header>
 
       <main className="admin-main">
+        <section className="admin-panel bling-settings-panel">
+          <div className="bling-settings-heading">
+            <div className="panel-icon"><Zap size={20} /></div>
+            <div className="panel-copy">
+              <span className="panel-label">INTEGRAÇÃO</span>
+              <h2>Configuração do Bling ERP</h2>
+              <p>Cadastre aqui as credenciais do aplicativo criado no Bling. O Client Secret permanece mascarado por padrão.</p>
+            </div>
+            <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : 'Não conectado'}</div>
+          </div>
+
+          <div className="bling-fields-grid">
+            <label className="bling-field">
+              <span>Client ID</span>
+              <div className="secret-input-wrap">
+                <input
+                  type={showClientId ? 'text' : 'password'}
+                  value={clientId}
+                  onChange={e => setClientId(e.target.value)}
+                  placeholder="Informe o Client ID"
+                  autoComplete="off"
+                />
+                <button type="button" aria-label={showClientId ? 'Ocultar Client ID' : 'Mostrar Client ID'} onClick={() => setShowClientId(v => !v)}>
+                  {showClientId ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </label>
+
+            <label className="bling-field">
+              <span>Client Secret</span>
+              <div className="secret-input-wrap">
+                <input
+                  type={showClientSecret ? 'text' : 'password'}
+                  value={clientSecret}
+                  onChange={e => setClientSecret(e.target.value)}
+                  placeholder="Informe o Client Secret"
+                  autoComplete="new-password"
+                />
+                <button type="button" aria-label={showClientSecret ? 'Ocultar Client Secret' : 'Mostrar Client Secret'} onClick={() => setShowClientSecret(v => !v)}>
+                  {showClientSecret ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </label>
+
+            <label className="bling-field bling-field-wide">
+              <span>Link de convite</span>
+              <input value={inviteLink} onChange={e => setInviteLink(e.target.value)} placeholder="Cole aqui o link de convite do Bling" autoComplete="off" />
+            </label>
+
+            <label className="bling-field bling-field-wide">
+              <span>URL de redirecionamento</span>
+              <input value="https://ecommercecapitaosuplementos.vercel.app/api/bling/callback" readOnly />
+              <small>Definida pelo sistema — cadastre esta mesma URL no aplicativo do Bling.</small>
+            </label>
+          </div>
+
+          <div className="bling-settings-footer">
+            <div className="security-note"><span>🔒</span> O Client Secret não será exibido em texto aberto no painel.</div>
+            <button className="admin-primary" type="button" onClick={saveBlingSettings}>
+              <Save size={16} />
+              {saved ? 'Configuração salva' : 'Salvar configuração'}
+            </button>
+          </div>
+        </section>
+
         <section className="admin-status-grid">
           <article className="admin-panel bling-panel">
             <div className="panel-icon"><Zap size={20} /></div>
             <div className="panel-copy">
-              <span className="panel-label">INTEGRAÇÃO</span>
-              <h2>Bling ERP</h2>
-              <p>{connected ? 'Conexão simulada pronta para receber o OAuth do Bling.' : 'Conecte o Bling para trazer produtos, preços, estoque e dados do catálogo.'}</p>
+              <span className="panel-label">CONEXÃO</span>
+              <h2>Bling OAuth</h2>
+              <p>{connected ? 'Conexão simulada pronta para receber o OAuth do Bling.' : 'Depois de salvar as credenciais, use este botão para iniciar a autorização do Bling.'}</p>
             </div>
             <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : 'Não conectado'}</div>
             <button className="admin-primary" onClick={simulateSync} disabled={syncing}>
