@@ -30,6 +30,7 @@ type BlingApiProduct = {
   preco?: number;
   imagemURL?: string;
   imagens?: Array<{ link?: string; url?: string }>;
+  midia?: { imagens?: { internas?: Array<{ link?: string; linkMiniatura?: string }>; externas?: Array<{ link?: string }> } };
   categoria?: { nome?: string };
   estoque?: { saldoVirtualTotal?: number; depositos?: Array<{ saldo?: number; quantidade?: number }> };
   situacao?: string;
@@ -49,7 +50,7 @@ function formatBlingPrice(value?: number) {
 }
 
 function toSiteProduct(product: BlingApiProduct, index: number): SiteProduct {
-  const image = product.imagemURL || product.imagens?.find(item => item.link || item.url)?.link || product.imagens?.find(item => item.url)?.url;
+  const image = product.imagemURL || product.imagens?.find(item => item.link || item.url)?.link || product.imagens?.find(item => item.url)?.url || product.midia?.imagens?.internas?.find(item => item.link)?.link;
   return {
     id: product.id ?? index + 1,
     name: product.nome || product.descricaoCurta || 'Produto Bling',
