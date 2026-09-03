@@ -86,7 +86,9 @@ function InstagramIcon({ size = 24 }: { size?: number }) {
 function Placeholder({ label, className = '' }: { label: string; className?: string }) {
   return <div className={`placeholder ${className}`} aria-label={`Espaço reservado para ${label}`}><span>{label}</span></div>;
 }
-function ProductCard({ product, onAdd }: { product: SiteProduct; onAdd: (product: SiteProduct) => void }) {
+function ProductCard({ product, onAdd }: { product: SiteProduct; onAdd: (product: SiteProduct, quantity: number) => void }) {
+  const [quantity, setQuantity] = useState(0);
+  const [showQuantity, setShowQuantity] = useState(false);
   const unavailable = product.stock <= 0;
   return <article className={`product-card ${unavailable ? 'product-unavailable' : ''}`}>
     <div className="product-media">
@@ -99,7 +101,7 @@ function ProductCard({ product, onAdd }: { product: SiteProduct; onAdd: (product
       <h3>{product.name}</h3>
       <strong>{product.price}</strong>
       <small>{unavailable ? 'Sem estoque no momento' : `Estoque disponível: ${product.stock}`}</small>
-      <button className={`product-button ${unavailable ? 'disabled' : ''}`} onClick={() => !unavailable && onAdd(product)} disabled={unavailable}>{unavailable ? 'INDISPONÍVEL' : 'ADICIONAR À SACOLA'}</button><a className="product-detail-link" href={`/produto/${product.id}`}>VER PRODUTO</a>
+      <button className="product-detail-link" onClick={() => !unavailable && setShowQuantity(true)} disabled={unavailable}>{unavailable ? 'INDISPONÍVEL' : 'VER PRODUTO'}</button>{showQuantity && <div className="quantity-picker"><button onClick={() => setQuantity(value => Math.max(0, value - 1))} aria-label="Diminuir quantidade">−</button><strong>{quantity}</strong><button onClick={() => setQuantity(value => Math.min(product.stock, value + 1))} aria-label="Aumentar quantidade">+</button></div>}<button className={`product-button ${unavailable || quantity === 0 ? 'disabled' : ''}`} onClick={() => quantity > 0 && onAdd(product, quantity)} disabled={unavailable || quantity === 0}>{unavailable ? 'INDISPONÍVEL' : 'ADICIONAR À SACOLA'}</button>
     </div>
   </article>;
 }
@@ -113,7 +115,7 @@ export default function App() {
   const [catalogError, setCatalogError] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<SiteProduct[]>(() => { try { return JSON.parse(localStorage.getItem('capitao-cart') || '[]'); } catch { return []; } });
-  const addToCart = (product: SiteProduct) => { setCart(current => { const next = [...current, product]; localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; }); setCartOpen(true); };
+  const addToCart = (product: SiteProduct, quantity: number) => { setCart(current => { const next = [...current, ...Array.from({ length: quantity }, () => product)]; localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; }); setCartOpen(true); };
   const removeFromCart = (id: number) => setCart(current => { const next = current.filter(item => item.id !== id); localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; });
 
   useEffect(() => {
