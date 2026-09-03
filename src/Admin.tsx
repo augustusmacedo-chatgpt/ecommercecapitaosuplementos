@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Image as ImageIcon, RefreshCw, Save, Settings2, ShoppingBag, SlidersHorizontal, Zap } from 'lucide-react';
 
-const mockProducts = [
+type PreviewProduct = { name: string; brand: string; price: string; image?: string };
+type BlingApiProduct = { id?: number; nome?: string; descricao?: string; descricaoCurta?: string; preco?: number; imagemURL?: string; imagens?: Array<{ link?: string; url?: string }>; categoria?: { nome?: string } };
+
+const mockProducts: PreviewProduct[] = [
   { name: 'Creatina 300g', brand: 'Produto Bling', price: 'R$ 00,00' },
   { name: 'Whey Protein 1kg', brand: 'Produto Bling', price: 'R$ 00,00' },
   { name: 'Pré-Treino 300g', brand: 'Produto Bling', price: 'R$ 00,00' },
   { name: 'Termogênico 60 caps', brand: 'Produto Bling', price: 'R$ 00,00' },
 ];
+
+function formatBlingPrice(value?: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : 'Consultar';
+}
+
+function toPreviewProduct(product: BlingApiProduct): PreviewProduct {
+  const image = product.imagemURL || product.imagens?.find(item => item.link)?.link || product.imagens?.find(item => item.url)?.url;
+  return { name: product.nome || product.descricao || product.descricaoCurta || 'Produto Bling', brand: product.categoria?.nome || 'Bling', price: formatBlingPrice(product.preco), image };
+}
 
 const redirectUrl = 'https://ecommercecapitaosuplementos.vercel.app/api/bling/callback';
 
@@ -33,6 +47,8 @@ export default function Admin() {
   const [clientSecret, setClientSecret] = useState('');
   const [inviteLink, setInviteLink] = useState('');
   const [secretConfigured, setSecretConfigured] = useState(false);
+  const [blingProducts, setBlingProducts] = useState<PreviewProduct[]>([]);
+  const [catalogError, setCatalogError] = useState('');
   const clientIdInputRef = useRef<HTMLInputElement>(null);
   const clientSecretInputRef = useRef<HTMLInputElement>(null);
   const inviteLinkInputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +72,22 @@ export default function Admin() {
         try {
           const statusResponse = await fetch('/api/bling/status', { cache: 'no-store' });
           const status = await readJson(statusResponse);
-          if (active) setConnected(Boolean(status.connected));
+          const isConnected = Boolean(status.connected);
+          if (active) setConnected(isConnected);
+          if (isConnected) {
+            try {
+              const productsResponse = await fetch('/api/bling/products?pagina=1&limite=4', { cache: 'no-store' });
+              const productsData = await readJson(productsResponse);
+              if (active) {
+                setBlingProducts((productsData.products || []).map(toPreviewProduct));
+                setCatalogError('');
+              }
+            } catch (productError) {
+              if (active) setCatalogError(productError instanceof Error ? productError.message : 'Não foi possível carregar o catálogo do Bling.');
+            }
+          } else if (active) {
+            setBlingProducts([]);
+          }
         } catch {
           if (active) setConnected(false);
         }
@@ -199,9 +230,9 @@ export default function Admin() {
             <div className="panel-copy">
               <span className="panel-label">CATÁLOGO</span>
               <h2>Produtos</h2>
-              <p>Prévia de como os produtos sincronizados serão apresentados na loja.</p>
+              <p>{catalogError || (blingProducts.length ? 'Produtos reais carregados do catálogo do Bling.' : 'Prévia de como os produtos sincronizados serão apresentados na loja.')}</p>
             </div>
-            <div className="admin-stat"><strong>—</strong><span>produtos sincronizados</span></div>
+            <div className="admin-stat"><strong>{connected ? blingProducts.length : '—'}</strong><span>produtos sincronizados</span></div>
           </article>
         </section>
 
@@ -230,10 +261,10 @@ export default function Admin() {
           </div>
 
           <div className="admin-product-grid">
-            {mockProducts.map(product => (
+            {(blingProducts.length ? blingProducts : mockProducts).map(product => (
               <article className="admin-product-card" key={product.name}>
-                <div className={mediaClass}>
-                  <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>
+                  <div className={mediaClass}>
+                  {product.image ? <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: fit }} /> : <div className="admin-image-placeholder"><ImageIcon size={27} /><span>IMAGEM DO BLING</span><small>prévia do enquadramento</small></div>}
                 </div>
                 <div className="admin-product-info">
                   <span>{product.brand}</span>

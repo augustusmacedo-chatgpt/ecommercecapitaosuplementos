@@ -47,19 +47,29 @@ export async function POST(request: Request) {
 
     const current = await loadStoredData();
     const body = (await readJsonBody(request)) as Partial<BlingConfig>;
-    const clientId = body.clientId?.trim() || current?.clientId || '';
-    const clientSecret = body.clientSecret?.trim() || current?.clientSecret || '';
-    const inviteLink = body.inviteLink?.trim() || current?.inviteLink || '';
+    const suppliedClientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
+    const suppliedClientSecret = typeof body.clientSecret === 'string' ? body.clientSecret.trim() : '';
+    const clientId = suppliedClientId || current?.clientId || '';
+    const clientSecret = suppliedClientSecret || current?.clientSecret || '';
+    const inviteLink = typeof body.inviteLink === 'string' ? body.inviteLink.trim() : (current?.inviteLink || '');
 
     if (!clientId || !clientSecret) {
       return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
     }
 
+    const credentialsChanged = Boolean(current && (
+      current.clientId !== clientId
+      || (suppliedClientSecret && current.clientSecret !== clientSecret)
+    ));
     await saveStoredData({
       clientId,
       clientSecret,
       inviteLink,
-      refreshToken: current?.refreshToken,
+      ...(credentialsChanged ? {} : {
+        refreshToken: current?.refreshToken,
+        accessToken: current?.accessToken,
+        accessTokenExpiresAt: current?.accessTokenExpiresAt,
+      }),
     });
 
     return json(

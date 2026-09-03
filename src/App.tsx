@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Heart, Search, ShoppingBag, UserRound, ArrowRight, BookOpen, MessageCircle } from 'lucide-react';
 
 const categories = [
@@ -16,6 +16,53 @@ const products = [
   { id: 3, name: 'Produto em destaque', category: 'Pré-Treinos', price: 'R$ 00,00', oldPrice: '', badge: 'OFERTA', tags: ['ENERGIA'] },
   { id: 4, name: 'Produto em destaque', category: 'Termogênicos', price: 'R$ 00,00', oldPrice: '', badge: 'DESTAQUE', tags: ['DEFINIÇÃO'] },
 ];
+
+type SiteProduct = {
+  id: number;
+  name: string;
+  category: string;
+  price: string;
+  oldPrice: string;
+  badge: string;
+  tags: string[];
+  image?: string;
+};
+
+type BlingApiProduct = {
+  id?: number;
+  nome?: string;
+  descricaoCurta?: string;
+  preco?: number;
+  imagemURL?: string;
+  imagens?: Array<{ link?: string; url?: string }>;
+  categoria?: { nome?: string };
+};
+
+function formatBlingPrice(value?: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : 'Consultar';
+}
+
+function toSiteProduct(product: BlingApiProduct, index: number): SiteProduct {
+  const image = product.imagemURL || product.imagens?.find(item => item.link || item.url)?.link || product.imagens?.find(item => item.url)?.url;
+  return {
+    id: product.id ?? index + 1,
+    name: product.nome || product.descricaoCurta || 'Produto Bling',
+    category: product.categoria?.nome || 'Suplementos',
+    price: formatBlingPrice(product.preco),
+    oldPrice: '',
+    badge: index === 0 ? 'DESTAQUE' : 'BLING',
+    tags: ['CATÁLOGO REAL'],
+    image,
+  };
+}
+
+async function readCatalog(response: Response) {
+  const data = await response.json().catch(() => ({})) as { products?: BlingApiProduct[]; error?: string };
+  if (!response.ok) throw new Error(data.error || `Erro HTTP ${response.status}`);
+  return data;
+}
 
 const learning = [
   { title: 'Como tomar creatina?', text: 'Entenda como incluir a creatina na sua rotina.' },
@@ -45,13 +92,13 @@ function Placeholder({ label, className = '' }: { label: string; className?: str
   return <div className={`placeholder ${className}`} aria-label={`Espaço reservado para ${label}`}><span>{label}</span></div>;
 }
 
-function ProductCard({ product }: { product: typeof products[number] }) {
+function ProductCard({ product }: { product: SiteProduct }) {
   return (
     <article className="product-card">
       <div className="product-media">
         {product.badge && <span className="badge">{product.badge}</span>}
         <button className="favorite" aria-label="Adicionar aos favoritos"><Heart size={17} /></button>
-        <Placeholder label="IMAGEM DO PRODUTO" />
+        {product.image ? <img className="product-image" src={product.image} alt={product.name} /> : <Placeholder label="IMAGEM DO PRODUTO" />}
       </div>
       <div className="product-body">
         <div className="tag-row">
@@ -71,6 +118,18 @@ function ProductCard({ product }: { product: typeof products[number] }) {
 export default function App() {
   const [search, setSearch] = useState('');
   const [slide, setSlide] = useState(0);
+  const [blingProducts, setBlingProducts] = useState<SiteProduct[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/bling/products?pagina=1&limite=12', { cache: 'no-store' })
+      .then(readCatalog)
+      .then(data => { if (active) setBlingProducts((data.products || []).map(toSiteProduct)); })
+      .catch(() => { if (active) setBlingProducts([]); });
+    return () => { active = false; };
+  }, []);
+
+  const visibleProducts = blingProducts.length ? blingProducts : products;
 
   return (
     <div className="site-shell">
@@ -117,14 +176,14 @@ export default function App() {
         <section className="section section-tinted" id="destaques">
           <div className="container">
             <SectionHeading eyebrow="O que está em evidência" title="🔥 DESTAQUES DA CAPITÃO" />
-            <div className="product-grid">{products.map(p => <ProductCard key={p.id} product={p} />)}</div>
+            <div className="product-grid">{visibleProducts.map(p => <ProductCard key={p.id} product={p} />)}</div>
           </div>
         </section>
 
         <section className="section" id="lancamentos">
           <div className="container">
             <SectionHeading eyebrow="Produtos novos no catálogo" title="LANÇAMENTOS" />
-            <div className="product-grid">{products.map(p => <ProductCard key={p.id} product={{ ...p, badge: 'LANÇAMENTO' }} />)}</div>
+            <div className="product-grid">{visibleProducts.map(p => <ProductCard key={p.id} product={{ ...p, badge: 'LANÇAMENTO' }} />)}</div>
           </div>
         </section>
 
@@ -163,7 +222,7 @@ export default function App() {
         <section className="section section-tinted" id="produtos">
           <div className="container">
             <SectionHeading eyebrow="Vitrine Capitão" title="OFERTAS" />
-            <div className="product-grid">{products.map(p => <ProductCard key={p.id} product={{ ...p, badge: 'OFERTA' }} />)}</div>
+            <div className="product-grid">{visibleProducts.map(p => <ProductCard key={p.id} product={{ ...p, badge: 'OFERTA' }} />)}</div>
           </div>
         </section>
 
