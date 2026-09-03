@@ -7,13 +7,6 @@ export { CONFIG_COOKIE, REFRESH_COOKIE, STATE_COOKIE };
 
 type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
 
-type CookieRequest = {
-  headers?: {
-    get?: (name: string) => string | null;
-    cookie?: string | string[];
-  };
-};
-
 function getSecret() {
   const secret = process.env.BLING_CONFIG_SECRET;
   if (!secret) throw new Error('BLING_CONFIG_SECRET não configurado na Vercel.');
@@ -62,18 +55,13 @@ export async function unseal<T>(value?: string): Promise<T | null> {
   }
 }
 
-export function parseCookies(request: CookieRequest) {
-  const headers = request.headers;
-  let raw = '';
-
-  if (headers?.get) {
-    raw = headers.get('cookie') || '';
-  } else if (headers?.cookie) {
-    raw = Array.isArray(headers.cookie) ? headers.cookie.join('; ') : headers.cookie;
-  }
-
+export function parseCookies(request: any) {
+  const headers = request?.headers;
+  const raw = typeof headers?.get === 'function'
+    ? headers.get('cookie') || ''
+    : headers?.cookie || headers?.Cookie || '';
   const result: Record<string, string> = {};
-  for (const part of raw.split(';')) {
+  for (const part of String(raw).split(';')) {
     if (!part.trim()) continue;
     const index = part.indexOf('=');
     if (index < 0) continue;
@@ -101,11 +89,27 @@ export function clearCookie(name: string) {
   return cookie(name, '', { maxAge: 0 });
 }
 
-export function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders },
-  });
+export function sendJson(res: any, data: unknown, status = 200, extraHeaders: Record<string, string | string[]> = {}) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  for (const [name, value] of Object.entries(extraHeaders)) res.setHeader(name, value);
+  res.end(JSON.stringify(data));
+}
+
+export async function readJsonBody(request: any) {
+  if (request?.body && typeof request.body === 'object') return request.body;
+  if (typeof request?.body === 'string' && request.body) return JSON.parse(request.body);
+  let raw = '';
+  for await (const chunk of request) raw += chunk.toString();
+  return raw ? JSON.parse(raw) : {};
+}
+
+export function redirect(res: any, location: string, cookies: string[] = []) {
+  res.statusCode = 302;
+  res.setHeader('Location', location);
+  if (cookies.length) res.setHeader('Set-Cookie', cookies);
+  res.setHeader('Cache-Control', 'no-store');
+  res.end();
 }
 
 export type { BlingConfig };
