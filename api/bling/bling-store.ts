@@ -6,11 +6,14 @@ const PATH = 'bling/capitao-credentials.json';
 export type BlingStoredData = BlingConfig & { refreshToken?: string };
 
 function storageError() {
-  return new Error('Armazenamento persistente do Bling não está conectado. Conecte um Vercel Blob privado ao projeto.');
+  return new Error('Armazenamento persistente do Bling não está conectado. Conecte um Vercel Blob privado ao projeto e disponibilize BLOB_READ_WRITE_TOKEN para a aplicação.');
 }
 
+// Para as Functions do Vercel, usamos o token explícito do Blob como fonte
+// de autenticação. Isso evita considerar apenas BLOB_STORE_ID como suficiente
+// e elimina uma inicialização que pode derrubar a Function em runtime.
 export function hasPersistentStorage() {
-  return Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
 export async function loadStoredData(): Promise<BlingStoredData | null> {
