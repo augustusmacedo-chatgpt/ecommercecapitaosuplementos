@@ -7,6 +7,13 @@ export { CONFIG_COOKIE, REFRESH_COOKIE, STATE_COOKIE };
 
 type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
 
+type CookieRequest = {
+  headers?: {
+    get?: (name: string) => string | null;
+    cookie?: string | string[];
+  };
+};
+
 function getSecret() {
   const secret = process.env.BLING_CONFIG_SECRET;
   if (!secret) throw new Error('BLING_CONFIG_SECRET não configurado na Vercel.');
@@ -55,8 +62,16 @@ export async function unseal<T>(value?: string): Promise<T | null> {
   }
 }
 
-export function parseCookies(request: Request) {
-  const raw = request.headers.get('cookie') || '';
+export function parseCookies(request: CookieRequest) {
+  const headers = request.headers;
+  let raw = '';
+
+  if (headers?.get) {
+    raw = headers.get('cookie') || '';
+  } else if (headers?.cookie) {
+    raw = Array.isArray(headers.cookie) ? headers.cookie.join('; ') : headers.cookie;
+  }
+
   const result: Record<string, string> = {};
   for (const part of raw.split(';')) {
     if (!part.trim()) continue;
