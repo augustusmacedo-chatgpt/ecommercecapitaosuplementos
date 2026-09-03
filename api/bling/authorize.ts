@@ -1,4 +1,4 @@
-import { BLING_REDIRECT_URI, CONFIG_COOKIE, STATE_COOKIE, cookie, json, parseCookies, unseal, type BlingConfig } from '../../src/server/bling';
+import { BLING_REDIRECT_URI, CONFIG_COOKIE, STATE_COOKIE, cookie, json, parseCookies, unseal, type BlingConfig } from './shared.js';
 
 export default async function handler(request: Request) {
   if (request.method !== 'GET') return json({ error: 'Método não permitido.' }, 405);
