@@ -10,6 +10,14 @@ const mockProducts = [
 
 const redirectUrl = 'https://ecommercecapitaosuplementos.vercel.app/api/bling/callback';
 
+async function readJson(response: Response) {
+  const text = await response.text();
+  let data: any = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || `HTTP ${response.status}` }; }
+  if (!response.ok) throw new Error(data.error || `Erro HTTP ${response.status}`);
+  return data;
+}
+
 export default function Admin() {
   const [fit, setFit] = useState<'contain' | 'cover'>('contain');
   const [background, setBackground] = useState<'white' | 'soft' | 'dark'>('white');
@@ -29,19 +37,34 @@ export default function Admin() {
   const mediaClass = useMemo(() => `admin-product-media fit-${fit} bg-${background}`, [fit, background]);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/bling/config', { cache: 'no-store' }).then(res => res.json()),
-      fetch('/api/bling/status', { cache: 'no-store' }).then(res => res.json()),
-    ])
-      .then(([config, status]) => {
+    let active = true;
+    async function load() {
+      setLoadingConfig(true);
+      setError('');
+      try {
+        const configResponse = await fetch('/api/bling/config', { cache: 'no-store' });
+        const config = await readJson(configResponse);
+        if (!active) return;
         setClientId(config.clientId || '');
         setInviteLink(config.inviteLink || '');
         setSecretConfigured(Boolean(config.secretConfigured));
         setConfigured(Boolean(config.configured));
-        setConnected(Boolean(status.connected));
-      })
-      .catch(() => setError('Não foi possível carregar a configuração do Bling.'))
-      .finally(() => setLoadingConfig(false));
+
+        try {
+          const statusResponse = await fetch('/api/bling/status', { cache: 'no-store' });
+          const status = await readJson(statusResponse);
+          if (active) setConnected(Boolean(status.connected));
+        } catch {
+          if (active) setConnected(false);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : 'Não foi possível carregar a configuração do Bling.');
+      } finally {
+        if (active) setLoadingConfig(false);
+      }
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   async function saveConfiguration() {
@@ -60,10 +83,9 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientSecret, inviteLink }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Não foi possível salvar.');
-      setConfigured(true);
-      setSecretConfigured(true);
+      const data = await readJson(response);
+      setConfigured(Boolean(data.configured));
+      setSecretConfigured(Boolean(data.secretConfigured));
       setClientSecret('');
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
