@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, Image as ImageIcon, RefreshCw, Save, Settings2, ShoppingBag, SlidersHorizontal, Zap } from 'lucide-react';
 
 const mockProducts = [
@@ -14,8 +14,10 @@ export default function Admin() {
   const [fit, setFit] = useState<'contain' | 'cover'>('contain');
   const [background, setBackground] = useState<'white' | 'soft' | 'dark'>('white');
   const [connected, setConnected] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
   const [showClientId, setShowClientId] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [clientId, setClientId] = useState('');
@@ -24,17 +26,47 @@ export default function Admin() {
 
   const mediaClass = useMemo(() => `admin-product-media fit-${fit} bg-${background}`, [fit, background]);
 
-  function saveConfiguration() {
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+  useEffect(() => {
+    fetch('/api/bling/status', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        setConnected(Boolean(data.connected));
+        setConfigured(Boolean(data.configured));
+      })
+      .catch(() => setError('Não foi possível consultar o status do Bling.'));
+  }, []);
+
+  async function saveConfiguration() {
+    setError('');
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setError('Informe o Client ID e o Client Secret.');
+      return;
+    }
+    try {
+      const response = await fetch('/api/bling/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, clientSecret, inviteLink }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível salvar.');
+      setConfigured(true);
+      setSaved(true);
+      setClientSecret('');
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar a configuração.');
+    }
   }
 
-  function simulateSync() {
-    setSyncing(true);
-    window.setTimeout(() => {
-      setSyncing(false);
-      setConnected(true);
-    }, 900);
+  function connectBling() {
+    setError('');
+    if (!configured) {
+      setError('Salve as credenciais do Bling antes de conectar.');
+      return;
+    }
+    setConnecting(true);
+    window.location.href = '/api/bling/authorize';
   }
 
   return (
@@ -57,14 +89,14 @@ export default function Admin() {
               <h2>Configuração do Bling ERP</h2>
               <p>Cadastre aqui as credenciais do aplicativo criado no Bling. Os campos sensíveis ficam protegidos por padrão.</p>
             </div>
-            <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : 'Não conectado'}</div>
+            <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : configured ? 'Configurado' : 'Não configurado'}</div>
           </div>
 
           <div className="bling-fields">
             <div className="bling-field">
               <label>Client ID</label>
               <div className="bling-input-wrap">
-                <input type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder="Informe o Client ID" autoComplete="off" />
+                <input type={showClientId ? 'text' : 'password'} value={clientId} onChange={e => setClientId(e.target.value)} placeholder={configured ? 'Credencial já salva — informe apenas se quiser substituir' : 'Informe o Client ID'} autoComplete="off" />
                 <button type="button" aria-label={showClientId ? 'Ocultar Client ID' : 'Mostrar Client ID'} onClick={() => setShowClientId(v => !v)}>{showClientId ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
@@ -72,7 +104,7 @@ export default function Admin() {
             <div className="bling-field">
               <label>Client Secret</label>
               <div className="bling-input-wrap">
-                <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder="Informe o Client Secret" autoComplete="new-password" />
+                <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder="•••••••••••••••••••••••••••••••" autoComplete="new-password" />
                 <button type="button" aria-label={showSecret ? 'Ocultar Client Secret' : 'Mostrar Client Secret'} onClick={() => setShowSecret(v => !v)}>{showSecret ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
             </div>
@@ -91,8 +123,10 @@ export default function Admin() {
             </div>
           </div>
 
+          {error && <p className="bling-config-error">⚠️ {error}</p>}
+
           <div className="bling-config-footer">
-            <p><span>🔒</span> O Client Secret não será exibido em texto aberto no painel.</p>
+            <p><span>🔒</span> O Client Secret é armazenado de forma protegida e nunca é devolvido ao navegador em texto aberto.</p>
             <button className="admin-primary" onClick={saveConfiguration}>
               <Save size={15} /> {saved ? 'Configuração salva' : 'Salvar configuração'}
             </button>
@@ -105,12 +139,12 @@ export default function Admin() {
             <div className="panel-copy">
               <span className="panel-label">CONEXÃO</span>
               <h2>Bling OAuth</h2>
-              <p>{connected ? 'Conexão simulada pronta para receber o OAuth do Bling.' : 'Depois de salvar as credenciais, o próximo passo será autorizar a aplicação no Bling.'}</p>
+              <p>{connected ? 'Aplicativo autorizado. A conexão agora usa OAuth 2.0 com JWT no servidor.' : 'Salve as credenciais e autorize a aplicação na sua conta Bling.'}</p>
             </div>
             <div className={`connection-state ${connected ? 'online' : ''}`}><span />{connected ? 'Conectado' : 'Aguardando'}</div>
-            <button className="admin-primary" onClick={simulateSync} disabled={syncing}>
-              {syncing ? <RefreshCw size={16} className="spin" /> : <Zap size={16} />}
-              {syncing ? 'Testando...' : connected ? 'Testar conexão' : 'Conectar Bling'}
+            <button className="admin-primary" onClick={connectBling} disabled={connecting}>
+              {connecting ? <RefreshCw size={16} className="spin" /> : <Zap size={16} />}
+              {connecting ? 'Abrindo Bling...' : connected ? 'Reconectar Bling' : 'Conectar Bling'}
             </button>
           </article>
 
@@ -169,12 +203,12 @@ export default function Admin() {
           <div className="panel-icon"><Settings2 size={20} /></div>
           <div className="panel-copy">
             <span className="panel-label">PRÓXIMA ETAPA</span>
-            <h2>Conector real do Bling</h2>
-            <p>O painel está preparado para receber o OAuth e, depois, carregar o catálogo real. A autenticação ficará no servidor.</p>
+            <h2>Catálogo real do Bling</h2>
+            <p>OAuth concluído. O próximo passo é consultar os produtos reais e preencher o laboratório visual com imagens, preços e estoque.</p>
           </div>
           <div className="roadmap-steps">
             <span className="done"><CheckCircle2 size={15} /> Painel</span>
-            <span>OAuth</span>
+            <span className="done"><CheckCircle2 size={15} /> OAuth</span>
             <span>Produtos</span>
             <span>Imagens</span>
             <span>Estoque</span>
