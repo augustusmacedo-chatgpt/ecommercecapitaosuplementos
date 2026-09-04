@@ -12,6 +12,7 @@ import Pdv from './Pdv';
 import PdvReport from './PdvReport';
 import PdvClosingEnhancer from './PdvClosingEnhancer';
 import PdvRecompraAlertsEnhancer from './PdvRecompraAlertsEnhancer';
+import PdvRealSaleEnhancer from './PdvRealSaleEnhancer';
 import './styles.css';
 
 function registerAppWorker() {
@@ -35,4 +36,4 @@ function CheckoutFlowBridge() {
 }
 function Page() { if (location.pathname === '/pdv') return <Pdv />; if (location.pathname === '/pdvreport') return <PdvReport />; if (location.pathname === '/checkout') return hasValidCheckoutSession() ? <><CheckoutPage /><CheckoutLoyalty checkoutId={sessionStorage.getItem('capitao-checkout-id') || ''} total={(() => { try { return JSON.parse(localStorage.getItem('capitao-cart') || '[]').reduce((sum: number, item: { price?: string }) => { const normalized = String(item.price || '').replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.'); const value = Number(normalized); return sum + (Number.isFinite(value) ? value : 0); }, 0); } catch { return 0; } })()} /></> : <ReconnectPage />; if (location.pathname === '/reconnect') return <ReconnectPage />; if (location.pathname === '/cadastro') return <CheckoutIdentityPage />; if (location.pathname === '/conta') return <ContaPage />; if (location.pathname === '/pedido') return <OrderPage />; return <Root />; }
 registerAppWorker();
-createRoot(document.getElementById('root')!).render(<StrictMode><Page /><CheckoutValidation /><CheckoutFlowBridge /><PdvClosingEnhancer /><PdvRecompraAlertsEnhancer /></StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode><Page /><CheckoutValidation /><CheckoutFlowBridge /><PdvClosingEnhancer /><PdvRecompraAlertsEnhancer /><PdvRealSaleEnhancer /></StrictMode>);
