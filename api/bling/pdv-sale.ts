@@ -5,7 +5,9 @@ import { getBlingAccessToken } from '../../src/server/bling-client.js';
 
 type Item = { id?: number; name?: string; code?: string; price?: number; quantity?: number };
 type Body = { checkoutId?: string; location?: 'camapua' | 'newfit'; customer?: { name?: string; document?: string; phone?: string; email?: string }; payment?: string; documentChoice?: 'nfc' | 'receipt'; items?: Item[]; total?: number };
+type Channel = { id?: number; nome?: string; descricao?: string; idUnidadeNegocio?: number | string; unidadeNegocio?: { id?: number } };
 const BASE = 'https://api.bling.com.br/Api/v3';
+const CHANNELS = { camapua: 206151819, newfit: 206151809 } as const;
 function clean(v: unknown) { return String(v ?? '').trim(); }
 function digits(v: unknown) { return clean(v).replace(/\D/g, ''); }
 function amount(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
@@ -26,6 +28,14 @@ export async function POST(request: Request) {
 
     const token = await getBlingAccessToken();
     const headers = { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'enable-jwt': '1' };
+    const channelId = CHANNELS[location];
+    const channelResponse = await fetch(`${BASE}/canais-venda/${channelId}`, { headers });
+    const channelText = await channelResponse.text();
+    if (!channelResponse.ok) return json({ error: `Não foi possível consultar a Loja Física no Bling. ${errorText(channelText)}` }, 502);
+    let channel: { data?: Channel } = {};
+    try { channel = JSON.parse(channelText); } catch { channel = {}; }
+    const resolvedUnitId = Number(channel.data?.idUnidadeNegocio || channel.data?.unidadeNegocio?.id || 0);
+
     const document = digits(body.customer?.document);
     let contactId = 0;
     if (document) {
@@ -43,16 +53,16 @@ export async function POST(request: Request) {
     const customerPhone = clean(body.customer?.phone);
     const customerEmail = clean(body.customer?.email);
     const documentLabel = body.documentChoice === 'nfc' ? 'NFC-e' : 'COMPROVANTE';
-    const unitId = Number(process.env[location === 'camapua' ? 'BLING_CAMAPUA_UNIDADE_ID' : 'BLING_NEWFIT_UNIDADE_ID'] || 0);
     const payload: Record<string, any> = {
       numeroLoja: checkoutId,
       data: new Date().toISOString().slice(0, 10),
+      loja: { id: channelId },
+      ...(resolvedUnitId > 0 ? { unidadeNegocio: { id: resolvedUnitId } } : {}),
       ...(contactId ? { contato: { id: contactId } } : {}),
       itens: normalized,
-      observacoes: [`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`, `LOJA: ${location === 'camapua' ? 'CAMAPUÃ' : 'NEWFIT'}`, `PAGAMENTO: ${payment}`, `DOCUMENTO: ${documentLabel}`, customerName ? `CLIENTE: ${customerName}` : '', customerPhone ? `TELEFONE: ${customerPhone}` : '', customerEmail ? `E-MAIL: ${customerEmail}` : ''].filter(Boolean).join('\n'),
-      observacoesInternas: `PDV CHECKOUT: ${checkoutId} | LOJA: ${location}`,
+      observacoes: [`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`, `LOJA: ${location === 'camapua' ? 'CAMAPUÃ' : 'NEWFIT'}`, `CANAL LOJA FÍSICA: ${channelId}`, `PAGAMENTO: ${payment}`, `DOCUMENTO: ${documentLabel}`, customerName ? `CLIENTE: ${customerName}` : '', customerPhone ? `TELEFONE: ${customerPhone}` : '', customerEmail ? `E-MAIL: ${customerEmail}` : ''].filter(Boolean).join('\n'),
+      observacoesInternas: `PDV CHECKOUT: ${checkoutId} | LOJA: ${location} | CANAL: ${channelId}`,
     };
-    if (unitId > 0) payload.unidadeNegocio = { id: unitId };
     const response = await fetch(`${BASE}/pedidos/vendas`, { method: 'POST', headers, body: JSON.stringify(payload) });
     const text = await response.text();
     if (!response.ok) return json({ error: `O Bling rejeitou a venda. ${errorText(text)}` }, response.status === 401 || response.status === 403 ? 403 : 422);
@@ -60,7 +70,7 @@ export async function POST(request: Request) {
     const orderId = Number(result?.data?.id || 0);
     const orderNumber = Number(result?.data?.numero || 0) || undefined;
     if (!orderId) return json({ error: 'O Bling recebeu a venda, mas não retornou o ID do pedido.' }, 502);
-    return json({ created: true, orderId, orderNumber, checkoutId, location, subtotal, total: subtotal, unitId: unitId || null, documentChoice: body.documentChoice || null }, 201);
+    return json({ created: true, orderId, orderNumber, checkoutId, location, channelId, unitId: resolvedUnitId || null, subtotal, total: subtotal, documentChoice: body.documentChoice || null }, 201);
   } catch (error) {
     console.error('PDV sale Bling error:', error);
     return json({ error: error instanceof Error ? error.message : 'Não foi possível registrar a venda no Bling.' }, 503);
