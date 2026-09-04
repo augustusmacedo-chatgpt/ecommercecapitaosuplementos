@@ -73,7 +73,7 @@ export async function reverseOrderRedemption(order: OrderSnapshot) {
   const customerKey = String(order.customerKey || canonicalCustomerKey(orderDocument(order), orderEmail(order)));
   const orderId = Number(order.id || 0); const checkoutId = String(order.checkoutId || '').trim(); const reservationId = String(order.loyaltyReservationId || '').trim();
   if (!customerKey || !orderId || !checkoutId || !reservationId) return { reversed: false, reason: 'no-redemption' as const };
-  const account = loadAccount ? await loadAccount(customerKey) : emptyPointsAccount(customerKey);
+  const account = await loadAccount(customerKey);
   const original = account.entries.find(entry => entry.type === 'redeem' && entry.orderId === orderId && entry.checkoutId === checkoutId && entry.points < 0 && entry.description.includes('Resgate'));
   if (!original) return { reversed: false, reason: 'redeem-not-found' as const };
   const reversalId = `redemption-reversal-${reservationId}`;
