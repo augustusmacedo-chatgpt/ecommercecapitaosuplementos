@@ -3,10 +3,6 @@
   "buildCommand": "npm run build",
   "rewrites": [
     { "source": "/api/bling/product/:id", "destination": "/api/bling/product?id=:id" },
-    { "source": "/admin", "destination": "/index.html" },
-    { "source": "/produto/:id", "destination": "/index.html" },
-    { "source": "/cadastro", "destination": "/index.html" },
-    { "source": "/checkout", "destination": "/index.html" },
-    { "source": "/reconnect", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
