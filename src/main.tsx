@@ -32,10 +32,6 @@ function CheckoutFlowBridge() {
     goToReconnectIfExpired();
     const timer = window.setInterval(goToReconnectIfExpired, 5000);
 
-    if (location.pathname === '/cadastro' && hasValidCheckoutSession() && localStorage.getItem('capitao-cart')) {
-      try { if (JSON.parse(localStorage.getItem('capitao-cart') || '[]').length) location.replace('/checkout'); } catch { /* ignore malformed cart */ }
-    }
-
     if (location.pathname === '/') {
       const verifiedDocument = localStorage.getItem('capitao-verified-document');
       const verifiedAt = localStorage.getItem('capitao-verified-at');
@@ -66,7 +62,7 @@ function CheckoutFlowBridge() {
 }
 
 function Page() {
-  if (location.pathname === '/checkout') return <CheckoutPage />;
+  if (location.pathname === '/checkout') return hasValidCheckoutSession() ? <CheckoutPage /> : <ReconnectPage />;
   if (location.pathname === '/reconnect') return <ReconnectPage />;
   return <Root />;
 }
