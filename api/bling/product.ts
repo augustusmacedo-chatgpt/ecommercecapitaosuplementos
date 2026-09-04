@@ -1,5 +1,6 @@
 import { json } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const id = url.searchParams.get('id') || url.pathname.split('/').pop();
@@ -10,8 +11,11 @@ export async function GET(request: Request) {
     if (!response.ok) return json({ error: 'Produto não encontrado no Bling.' }, response.status === 404 ? 404 : 502);
     const payload = await response.json() as { data?: any };
     const product = payload.data || {};
-    const media = [...(product.midia?.imagens?.internas || []), ...(product.midia?.imagens?.externas || [])];
-    const images = [...(product.imagens || []), ...media].map((item: any) => typeof item === 'string' ? item : item.link || item.url).filter(Boolean).filter((value: string, index: number, all: string[]) => all.indexOf(value) === index);
-    return json({ product: { ...product, imagemURL: product.imagemURL || images[0], imagens: images.map((link: string) => ({ link })) } }, 200, { 'Cache-Control': 'no-store' });
+    const internal = Array.isArray(product.midia?.imagens?.internas) ? product.midia.imagens.internas.map((item: any) => item?.link).filter(Boolean) : [];
+    const external = Array.isArray(product.midia?.imagens?.externas) ? product.midia.imagens.externas.map((item: any) => item?.link).filter(Boolean) : [];
+    const legacy = Array.isArray(product.imagens) ? product.imagens.map((item: any) => typeof item === 'string' ? item : item?.link || item?.url).filter(Boolean) : [];
+    const images = [...internal, ...external, ...legacy].filter((value: string, index: number, all: string[]) => all.indexOf(value) === index);
+    const primaryImage = images[0] || product.imagemURL;
+    return json({ product: { ...product, imagemURL: primaryImage, imagemOriginal: primaryImage, imagens: images.map((link: string) => ({ link })) } }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) { return json({ error: error instanceof Error ? error.message : 'Erro ao carregar produto.' }, 503); }
 }
