@@ -11,7 +11,7 @@ async function enrichVisibleImages(products: any[], token: string) {
     if (!product?.id) continue;
     if (index > 0) await sleep(360);
     try {
-      const response = await fetch(`${BLING_PRODUCTS_URL}/${product.id}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${BLING_PRODUCTS_URL}/${product.id}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}`, 'enable-jwt': '1' } });
       if (!response.ok) continue;
       const payload = await response.json() as { data?: any };
       const detail = payload.data || {};
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     const all = url.searchParams.get('todos') === '1';
     const token = await getBlingAccessToken();
     const fetchPage = async (currentPage: number) => {
-      const response = await fetch(`${BLING_PRODUCTS_URL}?pagina=${currentPage}&limite=${limit}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${BLING_PRODUCTS_URL}?pagina=${currentPage}&limite=${limit}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}`, 'enable-jwt': '1' } });
       if (!response.ok) {
         console.error('Bling products error:', response.status, await response.text());
         throw new Error(response.status === 401 ? 'A autorização do Bling expirou. Reconecte o aplicativo.' : 'Não foi possível consultar os produtos no Bling.');
