@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { get, put } from '@vercel/blob';
 import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
+import { canonicalCustomerKey, pointsFromOrderTotal } from '../../src/server/pontos.js';
 
 type CartItem = { id?: number; name?: string; price?: string; quantity?: number; code?: string };
 type Input = { checkoutId?: string; customer?: { document?: string; name?: string; birthDate?: string; email?: string; phone?: string; zip?: string; street?: string; number?: string; complement?: string; district?: string; city?: string; state?: string; observation?: string }; payment?: string; items?: CartItem[] };
@@ -46,7 +47,9 @@ export async function POST(request: Request) {
     if (!orderResponse.ok) { console.error('Bling sales order rejected:', orderResponse.status, orderText.slice(0, 1500)); return json({ error: `O Bling rejeitou o pedido. ${blingError(orderText)}`.trim() }, orderResponse.status === 401 || orderResponse.status === 403 ? 403 : 422); }
     let result: { data?: { id?: number; numero?: number } } = {}; try { result = JSON.parse(orderText); } catch { /* resposta inesperada */ }
     const orderId = Number(result.data?.id || 0); const orderNumber = Number(result.data?.numero || 0) || undefined; if (!orderId) return json({ error: 'O Bling recebeu uma resposta sem o ID do pedido.' }, 502);
-    await saveCreatedOrder(checkoutId, { id: orderId, numero: orderNumber, data: today(), total: normalizedItems.reduce((sum, item) => sum + item.quantidade * item.valor, 0), situacao: { valor: 'Em aberto' }, vendedor: null, itens: normalizedItems.map(item => ({ produtoId: item.produto.id, descricao: item.descricao || 'Produto', quantidade: item.quantidade, valor: item.valor, total: item.quantidade * item.valor })), updatedAt: new Date().toISOString() });
+    const total = normalizedItems.reduce((sum, item) => sum + item.quantidade * item.valor, 0);
+    const customerKey = canonicalCustomerKey(document, email);
+    await saveCreatedOrder(checkoutId, { id: orderId, numero: orderNumber, checkoutId, customerKey, customerDocument: document, customerEmail: email, customerName: clean(customer.name), data: today(), total, pointsEligible: true, pointsAwarded: false, pointsReversed: false, situacao: { valor: 'Em aberto' }, vendedor: null, itens: normalizedItems.map(item => ({ produtoId: item.produto.id, descricao: item.descricao || 'Produto', quantidade: item.quantidade, valor: item.valor, total: item.quantidade * item.valor })), estimatedPoints: pointsFromOrderTotal(total), updatedAt: new Date().toISOString() });
     return json({ created: true, orderId, orderNumber, blingContactId: contactId }, 201);
   } catch (error) { console.error('Bling order creation error:', error); return json({ error: error instanceof Error ? error.message : 'Não foi possível registrar o pedido.' }, 503); }
 }
