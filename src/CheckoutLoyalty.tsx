@@ -7,8 +7,6 @@ const RESERVATION_KEY = 'capitao-points-reservation';
 
 type AccountResponse = { enabled?: boolean; minimumPoints?: number; availablePoints?: number; availableValue?: number; reservedPoints?: number; error?: string };
 type ReservationResponse = { reserved?: boolean; reservationId?: string; points?: number; value?: number; expiresAt?: string; availablePoints?: number; error?: string };
-
-function price(value: string) { const normalized = String(value).replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.'); const n = Number(normalized); return Number.isFinite(n) ? n : 0; }
 function money(value: number) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
 export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: string; total: number }) {
@@ -28,7 +26,6 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
 
   useEffect(() => {
     if (location.pathname !== '/checkout') return;
-    let active = true;
     const target = document.createElement('div');
     target.id = 'checkout-loyalty-mount';
     const main = document.querySelector('.checkout-main');
@@ -36,7 +33,7 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
     if (!main || !submit) return;
     main.insertBefore(target, submit);
     setMount(target);
-    return () => { active = false; target.remove(); };
+    return () => { target.remove(); };
   }, []);
 
   useEffect(() => {
@@ -66,7 +63,9 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
       try {
         const body = JSON.parse(init.body);
         body.loyalty = { ...(body.loyalty || {}), reservationId: reservation.reservationId };
-        return originalFetch(input, { ...init, body: JSON.stringify(body) });
+        const response = await originalFetch(input, { ...init, body: JSON.stringify(body) });
+        if (response.ok) sessionStorage.removeItem(RESERVATION_KEY);
+        return response;
       } catch { return originalFetch(input, init); }
     };
     window.fetch = patched as typeof window.fetch;
@@ -74,10 +73,7 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
   }, [reservation?.reservationId]);
 
   const canRedeem = Boolean(account?.enabled && maxSelectable >= Number(account?.minimumPoints || 100) && !reservation && !working);
-  const quickValues = useMemo(() => {
-    const values = [100, 200, 500, 1000];
-    return values.filter(value => value <= maxSelectable).slice(0, 4);
-  }, [maxSelectable]);
+  const quickValues = useMemo(() => [100, 200, 500, 1000].filter(value => value <= maxSelectable).slice(0, 4), [maxSelectable]);
 
   async function reserve() {
     if (!canRedeem) return;
@@ -106,9 +102,10 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
     }
   }
 
-  if (!mount || loading || !account?.enabled || Number(account.availablePoints || 0) < Number(account.minimumPoints || 100) || total <= 0) return null;
+  if (!mount || loading || !account?.enabled || Number(account.availablePoints || 0) < Number(account.minimumPoints || 100) || maxSelectable < Number(account.minimumPoints || 100) || total <= 0) return null;
 
   const content = <section className="checkout-card checkout-loyalty-card">
+    <style>{`.checkout-loyalty-card{border:1px solid #ded7c8;background:linear-gradient(180deg,#fffdf8 0%,#fff 100%);box-shadow:0 6px 22px rgba(0,0,0,.035)}.checkout-loyalty-head{display:flex;align-items:flex-start;gap:12px}.checkout-loyalty-icon{width:38px;height:38px;border-radius:9px;background:#f4ecdc;color:#a37829;display:grid;place-items:center;flex:none}.checkout-loyalty-head h2{font-size:16px;margin:5px 0 5px}.checkout-loyalty-head p{font-size:11px;color:#777;margin:0;line-height:1.5}.checkout-loyalty-head strong{color:#7c5a22}.checkout-loyalty-picker{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px}.points-stepper{display:flex;align-items:center;gap:9px}.points-stepper button{width:30px;height:30px;border:1px solid #d7d1c5;background:#fff;border-radius:5px;display:grid;place-items:center;cursor:pointer;color:#76551f}.points-stepper button:disabled{opacity:.4;cursor:not-allowed}.points-stepper strong{font-size:18px;min-width:55px;text-align:center}.points-stepper span{font-size:10px;color:#777}.checkout-loyalty-benefit{display:flex;align-items:center;gap:6px;color:#9b7226}.checkout-loyalty-benefit strong{font-size:18px}.checkout-loyalty-benefit span{font-size:10px;color:#777}.checkout-loyalty-quick{display:flex;gap:6px;margin-top:11px}.checkout-loyalty-quick button{border:1px solid #ddd6c9;background:#fff;padding:6px 10px;border-radius:4px;font-size:9px;font-weight:800;cursor:pointer;color:#666}.checkout-loyalty-quick button.active{border-color:#b1832f;background:#fbf7ed;color:#8c6624}.checkout-loyalty-use{width:100%;margin-top:13px;display:flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:5px;background:#151515;color:#fff;padding:12px;font-size:10px;font-weight:900;letter-spacing:.65px;cursor:pointer}.checkout-loyalty-use:disabled{opacity:.55;cursor:wait}.checkout-loyalty-rule{display:block;margin-top:9px;color:#888;font-size:9px;text-align:center}.checkout-loyalty-reserved{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding:12px;background:#f7f3e9;border:1px solid #e4d9c0;border-radius:6px}.checkout-loyalty-reserved>div{display:flex;align-items:center;gap:8px;color:#876322}.checkout-loyalty-reserved>div>svg{flex:none}.checkout-loyalty-reserved span{display:flex;flex-direction:column;gap:3px}.checkout-loyalty-reserved strong{font-size:11px}.checkout-loyalty-reserved small{font-size:9px;color:#777}.checkout-loyalty-reserved button{display:flex;align-items:center;gap:4px;border:0;background:transparent;color:#777;font-size:9px;font-weight:800;cursor:pointer}.checkout-loyalty-error{margin-top:10px;padding:9px 11px;border-radius:5px;background:#fff5f5;border:1px solid #ead4d4;color:#985050;font-size:9px;font-weight:700}@media(max-width:760px){.checkout-loyalty-picker{align-items:stretch;flex-direction:column}.checkout-loyalty-benefit{justify-content:center}.checkout-loyalty-quick{justify-content:center}}`}</style>
     <div className="checkout-loyalty-head"><div className="checkout-loyalty-icon"><Gift size={19}/></div><div><span className="checkout-eyebrow">CAPITÃO PONTOS</span><h2>Use seus pontos nesta compra</h2><p>Você tem <strong>{Number(account.availablePoints || 0).toLocaleString('pt-BR')} pontos</strong> disponíveis ({money(Number(account.availableValue || 0))}).</p></div></div>
     {reservation ? <div className="checkout-loyalty-reserved"><div><Check size={17}/><span><strong>{reservation.points?.toLocaleString('pt-BR')} pontos reservados</strong><small>Desconto de {money(Number(reservation.value || 0))} aplicado ao pedido.</small></span></div><button type="button" onClick={release} disabled={working}><X size={14}/> Retirar</button></div> : <>
       <div className="checkout-loyalty-picker"><div className="points-stepper"><button type="button" aria-label="Diminuir pontos" disabled={points <= 100 || working} onClick={() => setPoints(value => Math.max(100, value - 100))}><Minus size={15}/></button><strong>{points.toLocaleString('pt-BR')}</strong><span>pontos</span><button type="button" aria-label="Aumentar pontos" disabled={points >= maxSelectable || working} onClick={() => setPoints(value => Math.min(maxSelectable, value + 100))}><Plus size={15}/></button></div><div className="checkout-loyalty-benefit"><Sparkles size={15}/><strong>{money(discount)}</strong><span>de desconto</span></div></div>
