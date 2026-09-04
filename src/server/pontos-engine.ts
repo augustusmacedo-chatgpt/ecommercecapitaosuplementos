@@ -9,7 +9,7 @@ async function loadAccount(customerKey: string) {
     const result = await get(accountStorageKey(customerKey), blobOptions());
     if (!result?.stream) return emptyPointsAccount(customerKey);
     const parsed = JSON.parse(await new Response(result.stream).text());
-    return { ...emptyPointsAccount(customerKey), ...parsed, customerKey, entries: Array.isArray(parsed.entries) ? parsed.entries : [], bonuses: Array.isArray(parsed.bonuses) ? parsed.bonuses : [], pendingEmails: Array.isArray(parsed.pendingEmails) ? parsed.pendingEmails : [], sentEmailIds: Array.isArray(parsed.sentEmailIds) ? parsed.sentEmailIds : [], cycleEarned: Number(parsed.cycleEarned || 0) };
+    return { ...emptyPointsAccount(customerKey), ...parsed, customerKey, entries: Array.isArray(parsed.entries) ? parsed.entries : [], bonuses: Array.isArray(parsed.bonuses) ? parsed.bonuses : [], reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [], pendingEmails: Array.isArray(parsed.pendingEmails) ? parsed.pendingEmails : [], sentEmailIds: Array.isArray(parsed.sentEmailIds) ? parsed.sentEmailIds : [], cycleEarned: Number(parsed.cycleEarned || 0) };
   } catch { return emptyPointsAccount(customerKey); }
 }
 async function saveAccount(account: ReturnType<typeof emptyPointsAccount>) { const token = process.env.BLOB_READ_WRITE_TOKEN; await put(accountStorageKey(account.customerKey), JSON.stringify(account), { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json', ...(token ? { token } : {}) }); }
@@ -67,4 +67,21 @@ export async function reverseOrderPoints(order: OrderSnapshot) {
   await saveAccount(next);
   await flushPendingPointEmails(next);
   return { reversed: true, points: Math.abs(earned.points), balance: next.balance };
+}
+
+export async function reverseOrderRedemption(order: OrderSnapshot) {
+  const customerKey = String(order.customerKey || canonicalCustomerKey(orderDocument(order), orderEmail(order)));
+  const orderId = Number(order.id || 0); const checkoutId = String(order.checkoutId || '').trim(); const reservationId = String(order.loyaltyReservationId || '').trim();
+  if (!customerKey || !orderId || !checkoutId || !reservationId) return { reversed: false, reason: 'no-redemption' as const };
+  const account = loadAccount ? await loadAccount(customerKey) : emptyPointsAccount(customerKey);
+  const original = account.entries.find(entry => entry.type === 'redeem' && entry.orderId === orderId && entry.checkoutId === checkoutId && entry.points < 0 && entry.description.includes('Resgate'));
+  if (!original) return { reversed: false, reason: 'redeem-not-found' as const };
+  const reversalId = `redemption-reversal-${reservationId}`;
+  if (account.entries.some(entry => entry.id === reversalId)) return { reversed: false, duplicate: true, points: Math.abs(original.points), balance: account.balance };
+  const applied = applyEntry(account, { type: 'reversal', points: Math.abs(original.points), orderId, checkoutId, description: `Devolução dos pontos resgatados no pedido #${orderId}` });
+  const last = applied.entries[applied.entries.length - 1];
+  const entries = applied.entries.filter(entry => entry.id !== last.id).concat({ ...last, id: reversalId });
+  const next = { ...applied, entries, reservations: (applied.reservations || []).map(item => item.id === reservationId && item.status === 'consumed' ? { ...item, status: 'released' as const } : item), lifetimeRedeemed: Math.max(0, applied.lifetimeRedeemed - Math.abs(original.points)), updatedAt: new Date().toISOString() };
+  await saveAccount(next);
+  return { reversed: true, points: Math.abs(original.points), balance: next.balance };
 }
