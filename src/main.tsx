@@ -1,6 +1,7 @@
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from './AdminRoute';
+import CheckoutPage, { hasValidCheckoutSession } from './CheckoutPage';
 import './styles.css';
 
 function CheckoutBackButton() {
@@ -43,9 +44,49 @@ function CheckoutBackButton() {
   return null;
 }
 
+function CheckoutFlowBridge() {
+  useEffect(() => {
+    if (location.pathname === '/cadastro' && hasValidCheckoutSession() && localStorage.getItem('capitao-cart')) {
+      try {
+        if (JSON.parse(localStorage.getItem('capitao-cart') || '[]').length) {
+          location.replace('/checkout');
+          return;
+        }
+      } catch { /* ignore malformed cart */ }
+    }
+
+    if (location.pathname !== '/') return;
+
+    const updateCheckoutButton = () => {
+      document.querySelectorAll<HTMLButtonElement>('.cart-checkout').forEach(button => {
+        button.textContent = 'IR PARA O CHECKOUT';
+        if (button.dataset.checkoutBound === 'true') return;
+        button.dataset.checkoutBound = 'true';
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          location.href = hasValidCheckoutSession() ? '/checkout' : '/cadastro';
+        }, true);
+      });
+    };
+
+    updateCheckoutButton();
+    const observer = new MutationObserver(updateCheckoutButton);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}
+
+function Page() {
+  return location.pathname === '/checkout' ? <CheckoutPage /> : <Root />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Root />
+    <Page />
     <CheckoutBackButton />
+    <CheckoutFlowBridge />
   </StrictMode>,
 );
