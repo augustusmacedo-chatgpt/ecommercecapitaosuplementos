@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   if (!id || !/^\d+$/.test(id)) return json({ error: 'Produto inválido.' }, 400);
   try {
     const token = await getBlingAccessToken();
-    const response = await fetch(`https://api.bling.com.br/Api/v3/produtos/${id}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}` } });
+    const response = await fetch(`https://api.bling.com.br/Api/v3/produtos/${id}`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}`, 'enable-jwt': '1' } });
     if (!response.ok) return json({ error: 'Produto não encontrado no Bling.' }, response.status === 404 ? 404 : 502);
     const payload = await response.json() as { data?: any };
     const product = payload.data || {};
