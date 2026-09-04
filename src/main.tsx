@@ -4,6 +4,7 @@ import Root from './AdminRoute';
 import CheckoutPage, { hasValidCheckoutSession } from './CheckoutPage';
 import CheckoutIdentityPage from './CheckoutIdentityPage';
 import CheckoutValidation from './CheckoutValidation';
+import CheckoutLoyalty from './CheckoutLoyalty';
 import ContaPage from './ContaPage';
 import OrderPage from './OrderPage';
 import ReconnectPage from './ReconnectPage';
@@ -23,5 +24,5 @@ function CheckoutFlowBridge() {
     updateCheckoutButton(); updateAccountLink(); updateOrderActions(); const observer = new MutationObserver(() => { updateCheckoutButton(); updateAccountLink(); updateOrderActions(); }); observer.observe(document.body, { childList: true, subtree: true }); return () => { observer.disconnect(); window.clearInterval(timer); };
   }, []); return null;
 }
-function Page() { if (location.pathname === '/checkout') return hasValidCheckoutSession() ? <CheckoutPage /> : <ReconnectPage />; if (location.pathname === '/reconnect') return <ReconnectPage />; if (location.pathname === '/cadastro') return <CheckoutIdentityPage />; if (location.pathname === '/conta') return <ContaPage />; if (location.pathname === '/pedido') return <OrderPage />; return <Root />; }
+function Page() { if (location.pathname === '/checkout') return hasValidCheckoutSession() ? <><CheckoutPage /><CheckoutLoyalty checkoutId={sessionStorage.getItem('capitao-checkout-id') || ''} total={(() => { try { return JSON.parse(localStorage.getItem('capitao-cart') || '[]').reduce((sum: number, item: { price?: string }) => { const normalized = String(item.price || '').replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.'); const value = Number(normalized); return sum + (Number.isFinite(value) ? value : 0); }, 0); } catch { return 0; } })()} /></> : <ReconnectPage />; if (location.pathname === '/reconnect') return <ReconnectPage />; if (location.pathname === '/cadastro') return <CheckoutIdentityPage />; if (location.pathname === '/conta') return <ContaPage />; if (location.pathname === '/pedido') return <OrderPage />; return <Root />; }
 createRoot(document.getElementById('root')!).render(<StrictMode><Page /><CheckoutValidation /><CheckoutFlowBridge /></StrictMode>);
