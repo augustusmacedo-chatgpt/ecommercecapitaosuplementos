@@ -55,6 +55,26 @@ export default function CheckoutLoyalty({ checkoutId, total }: { checkoutId: str
   }, [checkoutId]);
 
   useEffect(() => {
+    const summary = document.querySelector('.summary-sticky');
+    const totalElement = summary?.querySelector<HTMLElement>('.summary-total strong');
+    if (!summary || !totalElement) return;
+    const existing = summary.querySelector<HTMLElement>('.summary-loyalty-discount');
+    if (!reservation?.value) {
+      existing?.remove();
+      totalElement.textContent = money(total);
+      return;
+    }
+    const row = existing || document.createElement('div');
+    row.className = 'summary-line summary-loyalty-discount';
+    row.innerHTML = `<span>Pontos utilizados</span><b>-${money(Number(reservation.value))}</b>`;
+    if (!existing) {
+      const totalRow = summary.querySelector('.summary-total');
+      totalRow?.parentElement?.insertBefore(row, totalRow);
+    }
+    totalElement.textContent = money(Math.max(0, total - Number(reservation.value)));
+  }, [reservation?.value, total]);
+
+  useEffect(() => {
     if (!reservation?.reservationId) return;
     const originalFetch = window.fetch.bind(window);
     const patched = async (input: RequestInfo | URL, init?: RequestInit) => {
