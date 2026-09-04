@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { get, put } from '@vercel/blob';
 import { json } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
-import { awardOrderPoints, isCancelledOrderStatus, isEligibleOrderStatus, reverseOrderPoints } from '../../src/server/pontos-engine.js';
+import { awardOrderPoints, isCancelledOrderStatus, isEligibleOrderStatus, reverseOrderPoints, reverseOrderRedemption } from '../../src/server/pontos-engine.js';
 
 type WebhookPayload = { eventId?: string; date?: string; version?: string; event?: string; companyId?: number; data?: any };
 type RequestLike = Request & { body?: unknown };
@@ -39,16 +39,24 @@ export async function POST(request: Request) {
         const next = { ...current, id: Number(data.id || current.id), numero: Number(data.numero || current.numero || 0) || current.numero, data: data.data || current.data || null, total: Number(data.total || current.total || 0), situacao: status, contato: data.contato || current.contato || null, loja: data.loja || current.loja || null, vendedor: data.vendedor || current.vendedor || null, updatedAt: new Date().toISOString(), webhookEvent: payload.event || null };
         await saveOrder(checkoutId, next);
 
-        if (isEligibleOrderStatus(status) && !next.pointsAwarded && !next.pointsReversed) {
+        if (isCancelledOrderStatus(status)) {
+          if (next.pointsAwarded && !next.pointsReversed) {
+            waitUntil(reverseOrderPoints({ ...next, checkoutId }).then(async result => {
+              if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, pointsReversed: true, pointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result });
+              console.info('Estorno de pontos da compra processado:', checkoutId, result);
+            }).catch(error => console.error('Estorno de pontos da compra:', checkoutId, error)));
+          }
+          if (Number(next.loyaltyPointsRedeemed || 0) > 0 && !next.loyaltyPointsReversed) {
+            waitUntil(reverseOrderRedemption({ ...next, checkoutId }).then(async result => {
+              if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, loyaltyPointsReversed: true, loyaltyPointsReversedAt: next.loyaltyPointsReversedAt || new Date().toISOString(), loyaltyPointsReversalResult: result });
+              console.info('Estorno de resgate de pontos processado:', checkoutId, result);
+            }).catch(error => console.error('Estorno do resgate de pontos:', checkoutId, error)));
+          }
+        } else if (isEligibleOrderStatus(status) && !next.pointsAwarded && !next.pointsReversed) {
           waitUntil(awardOrderPoints({ ...next, checkoutId }).then(async result => {
             if (result.earned || result.duplicate) await saveOrder(checkoutId, { ...next, pointsAwarded: true, pointsAwardedAt: next.pointsAwardedAt || new Date().toISOString(), pointsAwardedResult: result });
             console.info('Pontos processados para pedido:', checkoutId, result);
           }).catch(error => console.error('Processamento de pontos do pedido:', checkoutId, error)));
-        } else if (isCancelledOrderStatus(status) && next.pointsAwarded && !next.pointsReversed) {
-          waitUntil(reverseOrderPoints({ ...next, checkoutId }).then(async result => {
-            if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, pointsReversed: true, pointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result });
-            console.info('Estorno de pontos processado para pedido:', checkoutId, result);
-          }).catch(error => console.error('Estorno de pontos do pedido:', checkoutId, error)));
         }
         console.info('Pedido sincronizado pelo webhook:', checkoutId, status, next.vendedor);
       }
