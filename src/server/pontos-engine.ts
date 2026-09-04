@@ -29,23 +29,23 @@ export async function awardOrderPoints(order: OrderSnapshot) {
   if (existing) return { earned: false, duplicate: true, points: existing.points, balance: account.balance };
   const points = pointsFromOrderTotal(total); if (!points) return { earned: false, reason: 'zero-points' as const };
   let next = { ...account, email: orderEmail(order) || account.email || null };
+  const previousCycleEarned = next.cycleEarned || 0;
   next = applyEntry(next, { type: 'earn', points, orderId, checkoutId, description: `Pontos da compra #${orderId}` });
+  next = await queueMilestoneEmails(next, previousCycleEarned);
 
   while (next.cycleEarned >= CYCLE_POINTS) {
-    const previousCycleEarned = next.cycleEarned;
-    next = await queueMilestoneEmails(next, previousCycleEarned - CYCLE_POINTS);
-    const cycle = Math.floor(((next.lifetimeEarned || 0) - next.cycleEarned) / CYCLE_POINTS);
-    next = await queueBonusEmail(next, cycle || 1);
-    const bonus = createBonusRecord(cycle || 1, next);
-    const conversionId = `cycle-${cycle || 1}-conversion`;
+    const cycle = Math.floor(((next.lifetimeEarned || 0) - next.cycleEarned) / CYCLE_POINTS) + 1;
+    next = await queueBonusEmail(next, cycle);
+    const bonus = createBonusRecord(cycle, next);
+    const conversionId = `cycle-${cycle}-conversion`;
     if (!next.entries.some(entry => entry.id === conversionId)) {
-      next = { ...next, balance: Math.max(0, next.balance - CYCLE_POINTS), cycleEarned: next.cycleEarned - CYCLE_POINTS, entries: [...next.entries, { id: conversionId, type: 'redeem', points: -CYCLE_POINTS, description: `Conversão automática do ciclo ${cycle || 1} em bônus de R$ 50,00`, createdAt: new Date().toISOString() }], lifetimeRedeemed: next.lifetimeRedeemed + CYCLE_POINTS, bonuses: [...(next.bonuses || []).filter(item => item.id !== bonus.id), bonus], updatedAt: new Date().toISOString() };
+      next = { ...next, balance: Math.max(0, next.balance - CYCLE_POINTS), cycleEarned: next.cycleEarned - CYCLE_POINTS, entries: [...next.entries, { id: conversionId, type: 'redeem', points: -CYCLE_POINTS, description: `Conversão automática do ciclo ${cycle} em bônus de R$ 50,00`, createdAt: new Date().toISOString() }], lifetimeRedeemed: next.lifetimeRedeemed + CYCLE_POINTS, bonuses: [...(next.bonuses || []).filter(item => item.id !== bonus.id), bonus], updatedAt: new Date().toISOString() };
+      next = await queueMilestoneEmails(next, 0);
     } else {
       next = { ...next, cycleEarned: next.cycleEarned - CYCLE_POINTS, balance: Math.max(0, next.balance - CYCLE_POINTS) };
     }
   }
 
-  next = await queueMilestoneEmails(next, Math.max(0, next.cycleEarned - points));
   await saveAccount(next);
   await flushPendingPointEmails(next);
   return { earned: true, points, balance: next.balance, customerKey };
