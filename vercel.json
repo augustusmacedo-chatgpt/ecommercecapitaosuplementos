@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
-  "rewrites": [{ "source": "/api/bling/product/:id", "destination": "/api/bling/product?id=:id" }, { "source": "/admin", "destination": "/index.html" }, { "source": "/produto/:id", "destination": "/index.html" }, { "source": "/cadastro", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/bling/product/:id", "destination": "/api/bling/product?id=:id" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/produto/:id", "destination": "/index.html" },
+    { "source": "/cadastro", "destination": "/index.html" },
+    { "source": "/checkout", "destination": "/index.html" },
+    { "source": "/reconnect", "destination": "/index.html" }
+  ]
 }
