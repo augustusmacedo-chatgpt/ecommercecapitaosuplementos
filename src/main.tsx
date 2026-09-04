@@ -55,6 +55,20 @@ function CheckoutFlowBridge() {
       } catch { /* ignore malformed cart */ }
     }
 
+    if (location.pathname === '/') {
+      const verifiedDocument = localStorage.getItem('capitao-verified-document');
+      const verifiedAt = localStorage.getItem('capitao-verified-at');
+      if (verifiedDocument && !verifiedAt) {
+        localStorage.setItem('capitao-verified-at', String(Date.now()));
+        try {
+          if (JSON.parse(localStorage.getItem('capitao-cart') || '[]').length) {
+            location.replace('/checkout');
+            return;
+          }
+        } catch { /* ignore malformed cart */ }
+      }
+    }
+
     if (location.pathname !== '/') return;
 
     const updateCheckoutButton = () => {
