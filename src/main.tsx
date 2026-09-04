@@ -44,7 +44,7 @@ function CheckoutFlowBridge() {
     if (location.pathname !== '/') return () => window.clearInterval(timer);
     const updateCheckoutButton = () => {
       document.querySelectorAll<HTMLButtonElement>('.cart-checkout').forEach(button => {
-        button.textContent = 'IR PARA O CHECKOUT';
+        if (button.textContent !== 'IR PARA O CHECKOUT') button.textContent = 'IR PARA O CHECKOUT';
         if (button.dataset.checkoutBound === 'true') return;
         button.dataset.checkoutBound = 'true';
         button.addEventListener('click', event => {
