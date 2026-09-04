@@ -18,6 +18,38 @@ function amount(value: unknown) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function numericField(order: AnyRecord, candidates: Array<unknown>) {
+  for (const candidate of candidates) {
+    if (candidate !== undefined && candidate !== null && candidate !== '') return { available: true, value: amount(candidate) };
+  }
+  return { available: false, value: 0 };
+}
+
+function valueBreakdown(order: AnyRecord) {
+  const total = amount(order?.total);
+  const before = numericField(order, [
+    order?.subtotal,
+    order?.subtotalProdutos,
+    order?.valorProdutos,
+    order?.totalProdutos,
+    order?.valorBruto,
+    order?.valorTotalSemDesconto,
+  ]);
+  const discount = numericField(order, [
+    order?.desconto?.valor,
+    order?.valorDesconto,
+    order?.desconto,
+  ]);
+
+  if (before.available) {
+    return { available: true, before: before.value, discount: discount.available ? discount.value : Math.max(0, before.value - total), total };
+  }
+  if (discount.available) {
+    return { available: true, before: total + discount.value, discount: discount.value, total };
+  }
+  return { available: false, before: 0, discount: 0, total };
+}
+
 function isAttended(order: AnyRecord) {
   const situation = order?.situacao ?? {};
   const configuredId = process.env.BLING_ATENDIDO_SITUACAO_ID?.trim();
@@ -82,9 +114,12 @@ export async function GET(request: Request) {
 
   try {
     const token = await getBlingAccessToken();
-    const stores = STORE_DEFINITIONS.map(store => ({ name: store.name, stock: store.stock, sales: 0, total: 0, pix: 0, cash: 0, credit: 0, debit: 0, bemol: 0 }));
+    const stores = STORE_DEFINITIONS.map(store => ({ name: store.name, stock: store.stock, sales: 0, total: 0, beforeDiscount: 0, discount: 0, pix: 0, cash: 0, credit: 0, debit: 0, bemol: 0 }));
     let attended = 0;
     let gross = 0;
+    let beforeDiscount = 0;
+    let discount = 0;
+    let valueBreakdownAvailable = true;
     let paymentBreakdownAvailable = true;
     let page = 1;
 
@@ -97,14 +132,24 @@ export async function GET(request: Request) {
       for (const order of orders) {
         if (!isAttended(order)) continue;
         attended += 1;
-        const value = amount(order?.total);
-        gross += value;
+        const breakdown = valueBreakdown(order);
+        gross += breakdown.total;
+        if (breakdown.available) {
+          beforeDiscount += breakdown.before;
+          discount += breakdown.discount;
+        } else {
+          valueBreakdownAvailable = false;
+        }
         const store = storeFor(order);
         if (!store) continue;
         const target = stores.find(item => item.name === store.name);
         if (!target) continue;
         target.sales += 1;
-        target.total += value;
+        target.total += breakdown.total;
+        if (breakdown.available) {
+          target.beforeDiscount += breakdown.before;
+          target.discount += breakdown.discount;
+        }
         if (!addPayments(target, order)) paymentBreakdownAvailable = false;
       }
 
@@ -113,7 +158,7 @@ export async function GET(request: Request) {
       await new Promise(resolve => setTimeout(resolve, 350));
     }
 
-    return json({ date, stores, sales: attended, total: gross, paymentBreakdownAvailable });
+    return json({ date, stores, sales: attended, total: gross, beforeDiscount: valueBreakdownAvailable ? beforeDiscount : null, discount: valueBreakdownAvailable ? discount : null, valueBreakdownAvailable, paymentBreakdownAvailable });
   } catch (error) {
     const status = Number((error as AnyRecord)?.status) || 500;
     console.error('PDV report Bling error:', error);
