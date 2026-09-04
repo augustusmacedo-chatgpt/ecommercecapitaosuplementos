@@ -49,7 +49,7 @@ export default function ReconnectPage() {
       </> : <>
         <div className="reconnect-destination">Código enviado para <strong>seu e-mail cadastrado</strong></div>
         <label>Código de 6 dígitos<input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000" inputMode="numeric" autoFocus /></label>
-        <button className="reconnect-primary" onClick={verify} disabled={loading || code.length !== 6}>{loading ? 'VALIDANDO...' : 'RECONCTAR E CONTINUAR'}</button>
+        <button className="reconnect-primary" onClick={verify} disabled={loading || code.length !== 6}>{loading ? 'VALIDANDO...' : 'RECONNECTAR E CONTINUAR'}</button>
         <button className="reconnect-resend" onClick={sendCode} disabled={loading}>REENVIAR CÓDIGO</button>
       </>}
       {message && <div className={`reconnect-message ${message.includes('enviado') ? 'success' : 'error'}`}>{message}</div>}
