@@ -7,6 +7,29 @@ export const CYCLE_POINTS = 1000;
 
 export type PointsEntryType = 'earn' | 'redeem' | 'adjust' | 'reversal' | 'expiration';
 
+export type PendingPointEmail = {
+  id: string;
+  type: 'milestone' | 'bonus';
+  milestone?: number;
+  cycle?: number;
+  to: string;
+  bonusCodePix?: string;
+  bonusCodeCard?: string;
+  bonusValue?: number;
+  createdAt: string;
+};
+
+export type PointsBonus = {
+  id: string;
+  cycle: number;
+  value: number;
+  pointsConverted: number;
+  pixCashCode: string | null;
+  cardCode: string | null;
+  createdAt: string;
+  status: 'available' | 'used' | 'expired';
+};
+
 export type PointsEntry = {
   id: string;
   type: PointsEntryType;
@@ -19,10 +42,15 @@ export type PointsEntry = {
 
 export type PointsAccount = {
   customerKey: string;
+  email?: string | null;
   balance: number;
   lifetimeEarned: number;
   lifetimeRedeemed: number;
+  cycleEarned: number;
   entries: PointsEntry[];
+  bonuses?: PointsBonus[];
+  pendingEmails?: PendingPointEmail[];
+  sentEmailIds?: string[];
   updatedAt: string;
 };
 
@@ -56,15 +84,19 @@ export function accountStorageKey(customerKey: string) {
 }
 
 export function emptyPointsAccount(customerKey: string): PointsAccount {
-  return { customerKey, balance: 0, lifetimeEarned: 0, lifetimeRedeemed: 0, entries: [], updatedAt: new Date().toISOString() };
+  return { customerKey, email: null, balance: 0, lifetimeEarned: 0, lifetimeRedeemed: 0, cycleEarned: 0, entries: [], bonuses: [], pendingEmails: [], sentEmailIds: [], updatedAt: new Date().toISOString() };
 }
 
 export function applyEntry(account: PointsAccount, entry: Omit<PointsEntry, 'id' | 'createdAt'>): PointsAccount {
   const id = createHash('sha256').update(JSON.stringify({ ...entry, customerKey: account.customerKey })).digest('hex').slice(0, 24);
+  if (account.entries.some(existing => existing.id === id)) return account;
   const points = Math.floor(entry.points);
   const next = { ...account, entries: [...account.entries, { ...entry, points, id, createdAt: new Date().toISOString() }] };
   next.balance = Math.max(0, next.balance + points);
-  if (entry.type === 'earn' && points > 0) next.lifetimeEarned += points;
+  if (entry.type === 'earn' && points > 0) {
+    next.lifetimeEarned += points;
+    next.cycleEarned += points;
+  }
   if (entry.type === 'redeem' && points < 0) next.lifetimeRedeemed += Math.abs(points);
   next.updatedAt = new Date().toISOString();
   return next;
