@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { get, put } from '@vercel/blob';
@@ -39,15 +40,15 @@ export async function POST(request: Request) {
         await saveOrder(checkoutId, next);
 
         if (isEligibleOrderStatus(status) && !next.pointsAwarded && !next.pointsReversed) {
-          const result = await awardOrderPoints({ ...next, checkoutId });
-          if (result.earned || result.duplicate) {
-            await saveOrder(checkoutId, { ...next, pointsAwarded: true, pointsAwardedAt: next.pointsAwardedAt || new Date().toISOString(), pointsAwardedResult: result });
-          }
-          console.info('Pontos processados para pedido:', checkoutId, result);
+          waitUntil(awardOrderPoints({ ...next, checkoutId }).then(async result => {
+            if (result.earned || result.duplicate) await saveOrder(checkoutId, { ...next, pointsAwarded: true, pointsAwardedAt: next.pointsAwardedAt || new Date().toISOString(), pointsAwardedResult: result });
+            console.info('Pontos processados para pedido:', checkoutId, result);
+          }).catch(error => console.error('Processamento de pontos do pedido:', checkoutId, error)));
         } else if (isCancelledOrderStatus(status) && next.pointsAwarded && !next.pointsReversed) {
-          const result = await reverseOrderPoints({ ...next, checkoutId });
-          if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, pointsReversed: true, pointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result });
-          console.info('Estorno de pontos processado para pedido:', checkoutId, result);
+          waitUntil(reverseOrderPoints({ ...next, checkoutId }).then(async result => {
+            if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, pointsReversed: true, pointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result });
+            console.info('Estorno de pontos processado para pedido:', checkoutId, result);
+          }).catch(error => console.error('Estorno de pontos do pedido:', checkoutId, error)));
         }
         console.info('Pedido sincronizado pelo webhook:', checkoutId, status, next.vendedor);
       }
