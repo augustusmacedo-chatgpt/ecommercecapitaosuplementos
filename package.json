@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {"dev":"vite","build":"vite build","typecheck":"tsc --noEmit","preview":"vite preview"},
-  "dependencies": {"@vercel/blob":"2.8.0","@vitejs/plugin-react":"latest","lucide-react":"latest","react":"latest","react-dom":"latest","vite":"latest"},
+  "dependencies": {"@vercel/blob":"2.8.0","@vercel/functions":"latest","@vitejs/plugin-react":"latest","lucide-react":"latest","react":"latest","react-dom":"latest","vite":"latest"},
   "devDependencies": {"@types/node":"latest","@types/react":"latest","@types/react-dom":"latest","typescript":"latest"}
 }

@@ -1,0 +1,32 @@
+{
+  "name": "Capitão Suplementos",
+  "short_name": "Capitão",
+  "description": "Capitão Suplementos — Assuma o comando da sua suplementação.",
+  "start_url": "/pdv",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "/Logo_Capitao_Esportivo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir PDV",
+      "short_name": "PDV",
+      "url": "/pdv",
+      "icons": [
+        {
+          "src": "/Logo_Capitao_Esportivo.png",
+          "sizes": "any",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

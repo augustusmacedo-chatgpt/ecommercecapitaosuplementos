@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "rewrites": [
-    { "source": "/api/bling/product/:id", "destination": "/api/bling/product?id=:id" },
+    { "source": "/api/bling/product/:id", "destination": "/api/bling/products?id=:id" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
