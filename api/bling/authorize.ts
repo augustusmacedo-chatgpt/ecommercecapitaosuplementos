@@ -11,12 +11,10 @@ export async function GET(request: Request) {
     }
 
     const state = crypto.randomUUID().replaceAll('-', '');
-    const redirectUri = new URL('/api/bling/callback', request.url).toString();
     const authorizeUrl = new URL('https://www.bling.com.br/Api/v3/oauth/authorize');
     authorizeUrl.searchParams.set('response_type', 'code');
     authorizeUrl.searchParams.set('client_id', config.clientId);
     authorizeUrl.searchParams.set('state', state);
-    authorizeUrl.searchParams.set('redirect_uri', redirectUri);
 
     return new Response(null, {
       status: 302,
