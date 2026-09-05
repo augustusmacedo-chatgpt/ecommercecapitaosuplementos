@@ -3,81 +3,33 @@ import { hasPersistentStorage, loadStoredData, saveStoredData } from '../../src/
 
 function storageUnavailable() {
   return json(
-    { error: 'Armazenamento persistente do Bling ainda não está conectado na Vercel.' },
+    { error: 'Armazenamento persistente do Bling ainda não está conectado ao Cloudflare R2.' },
     503,
   );
 }
 
-function errorResponse(error: unknown) {
-  console.error('Bling config error:', error);
-  return json(
-    {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível processar a configuração do Bling.',
-    },
-    500,
-  );
-}
-
 export async function GET() {
+  if (!hasPersistentStorage()) return storageUnavailable();
   try {
-    if (!hasPersistentStorage()) return storageUnavailable();
-
-    const current = await loadStoredData();
-    return json(
-      {
-        configured: Boolean(current?.clientId && current.clientSecret),
-        clientId: current?.clientId || '',
-        inviteLink: current?.inviteLink || '',
-        secretConfigured: Boolean(current?.clientSecret),
-      },
-      200,
-      { 'Cache-Control': 'no-store' },
-    );
+    const data = await loadStoredData();
+    return json({ configured: Boolean(data?.clientId && data?.clientSecret), inviteLink: data?.inviteLink || '' }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
-    return errorResponse(error);
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível carregar a configuração do Bling.' }, 503);
   }
 }
 
 export async function POST(request: Request) {
+  if (!hasPersistentStorage()) return storageUnavailable();
   try {
-    if (!hasPersistentStorage()) return storageUnavailable();
-
+    const body = await readJsonBody(request) as Partial<BlingConfig>;
     const current = await loadStoredData();
-    const body = (await readJsonBody(request)) as Partial<BlingConfig>;
-    const suppliedClientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
-    const suppliedClientSecret = typeof body.clientSecret === 'string' ? body.clientSecret.trim() : '';
-    const clientId = suppliedClientId || current?.clientId || '';
-    const clientSecret = suppliedClientSecret || current?.clientSecret || '';
-    const inviteLink = typeof body.inviteLink === 'string' ? body.inviteLink.trim() : (current?.inviteLink || '');
-
-    if (!clientId || !clientSecret) {
-      return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
-    }
-
-    const credentialsChanged = Boolean(current && (
-      current.clientId !== clientId
-      || (suppliedClientSecret && current.clientSecret !== clientSecret)
-    ));
-    await saveStoredData({
-      clientId,
-      clientSecret,
-      inviteLink,
-      ...(credentialsChanged ? {} : {
-        refreshToken: current?.refreshToken,
-        accessToken: current?.accessToken,
-        accessTokenExpiresAt: current?.accessTokenExpiresAt,
-      }),
-    });
-
-    return json(
-      { ok: true, configured: true, clientId, secretConfigured: true, inviteLink },
-      200,
-      { 'Cache-Control': 'no-store' },
-    );
+    const clientId = String(body.clientId ?? current?.clientId ?? '').trim();
+    const clientSecret = String(body.clientSecret ?? current?.clientSecret ?? '').trim();
+    const inviteLink = String(body.inviteLink ?? current?.inviteLink ?? '').trim();
+    if (!clientId || !clientSecret) return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+    await saveStoredData({ ...current, clientId, clientSecret, inviteLink });
+    return json({ ok: true, configured: true });
   } catch (error) {
-    return errorResponse(error);
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível salvar a configuração do Bling.' }, 503);
   }
 }
