@@ -4,7 +4,7 @@ import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
 
 type Item = { id?: number; name?: string; code?: string; price?: number; quantity?: number };
-type Body = { checkoutId?: string; location?: 'camapua' | 'newfit'; customer?: { name?: string; document?: string; phone?: string; email?: string }; payment?: string; documentChoice?: 'nfc' | 'receipt'; items?: Item[]; total?: number };
+type Body = { checkoutId?: string; location?: 'camapua' | 'newfit'; sellerId?: number | string; sellerName?: string; customer?: { name?: string; document?: string; phone?: string; email?: string }; payment?: string; documentChoice?: 'nfc' | 'receipt'; items?: Item[]; total?: number };
 type Channel = { id?: number; nome?: string; descricao?: string; idUnidadeNegocio?: number | string; unidadeNegocio?: { id?: number } };
 const BASE = 'https://api.bling.com.br/Api/v3';
 const CHANNELS = { camapua: 206151819, newfit: 206151809 } as const;
@@ -21,8 +21,10 @@ export async function POST(request: Request) {
     const checkoutId = clean(body.checkoutId);
     const location = body.location;
     const items = Array.isArray(body.items) ? body.items : [];
+    const sellerId = Number(body.sellerId || 0);
     if (!checkoutId) return json({ error: 'Identificador da venda não informado.' }, 400);
     if (!['camapua', 'newfit'].includes(String(location))) return json({ error: 'Loja do PDV não informada.' }, 400);
+    if (!sellerId || !Number.isInteger(sellerId)) return json({ error: 'Vendedor do Bling não informado.' }, 400);
     if (!items.length) return json({ error: 'A venda está sem produtos.' }, 400);
     if (await exists(checkoutId)) return json({ created: true, duplicate: true, checkoutId }, 200);
 
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
     if (!normalized.length) return json({ error: 'Nenhum produto válido foi identificado.' }, 400);
     const subtotal = normalized.reduce((s, item) => s + item.quantidade * item.valor, 0);
     const payment = clean(body.payment) || 'NÃO INFORMADO';
+    const sellerName = clean(body.sellerName);
     const customerName = clean(body.customer?.name);
     const customerPhone = clean(body.customer?.phone);
     const customerEmail = clean(body.customer?.email);
@@ -57,11 +60,12 @@ export async function POST(request: Request) {
       numeroLoja: checkoutId,
       data: new Date().toISOString().slice(0, 10),
       loja: { id: channelId },
+      vendedor: { id: sellerId },
       ...(resolvedUnitId > 0 ? { unidadeNegocio: { id: resolvedUnitId } } : {}),
       ...(contactId ? { contato: { id: contactId } } : {}),
       itens: normalized,
-      observacoes: [`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`, `LOJA: ${location === 'camapua' ? 'CAMAPUÃ' : 'NEWFIT'}`, `CANAL LOJA FÍSICA: ${channelId}`, `PAGAMENTO: ${payment}`, `DOCUMENTO: ${documentLabel}`, customerName ? `CLIENTE: ${customerName}` : '', customerPhone ? `TELEFONE: ${customerPhone}` : '', customerEmail ? `E-MAIL: ${customerEmail}` : ''].filter(Boolean).join('\n'),
-      observacoesInternas: `PDV CHECKOUT: ${checkoutId} | LOJA: ${location} | CANAL: ${channelId}`,
+      observacoes: [`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`, `LOJA: ${location === 'camapua' ? 'CAMAPUÃ' : 'NEWFIT'}`, `CANAL LOJA FÍSICA: ${channelId}`, `VENDEDOR: ${sellerName || sellerId}`, `PAGAMENTO: ${payment}`, `DOCUMENTO: ${documentLabel}`, customerName ? `CLIENTE: ${customerName}` : '', customerPhone ? `TELEFONE: ${customerPhone}` : '', customerEmail ? `E-MAIL: ${customerEmail}` : ''].filter(Boolean).join('\n'),
+      observacoesInternas: `PDV CHECKOUT: ${checkoutId} | LOJA: ${location} | CANAL: ${channelId} | VENDEDOR BLING: ${sellerId}`,
     };
     const response = await fetch(`${BASE}/pedidos/vendas`, { method: 'POST', headers, body: JSON.stringify(payload) });
     const text = await response.text();
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
     const orderId = Number(result?.data?.id || 0);
     const orderNumber = Number(result?.data?.numero || 0) || undefined;
     if (!orderId) return json({ error: 'O Bling recebeu a venda, mas não retornou o ID do pedido.' }, 502);
-    return json({ created: true, orderId, orderNumber, checkoutId, location, channelId, unitId: resolvedUnitId || null, subtotal, total: subtotal, documentChoice: body.documentChoice || null }, 201);
+    return json({ created: true, orderId, orderNumber, checkoutId, location, sellerId, sellerName: sellerName || null, channelId, unitId: resolvedUnitId || null, subtotal, total: subtotal, documentChoice: body.documentChoice || null }, 201);
   } catch (error) {
     console.error('PDV sale Bling error:', error);
     return json({ error: error instanceof Error ? error.message : 'Não foi possível registrar a venda no Bling.' }, 503);
