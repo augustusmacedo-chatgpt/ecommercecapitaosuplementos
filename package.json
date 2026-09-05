@@ -11,8 +11,6 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
-    "@vercel/blob": "2.8.0",
-    "@vercel/functions": "latest",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
     "react": "latest",
