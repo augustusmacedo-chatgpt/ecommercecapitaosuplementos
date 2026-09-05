@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { put } from '@vercel/blob';
+import { put } from './storage.js';
 import { CYCLE_POINTS, VALUE_PER_POINT, PointsAccount, PendingPointEmail } from './pontos.js';
 
 function key(customerKey: string) { return `points/accounts/${createHash('sha256').update(customerKey).digest('hex')}.json`; }
-async function save(account: PointsAccount) { const token = process.env.BLOB_READ_WRITE_TOKEN; await put(key(account.customerKey), JSON.stringify(account), { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json', ...(token ? { token } : {}) }); }
+async function save(account: PointsAccount) { await put(key(account.customerKey), JSON.stringify(account), { contentType: 'application/json' }); }
 function htmlEscape(value: string) { return value.replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char] || char)); }
 function sender() { return process.env.POINTS_EMAIL_FROM || 'Capitão Suplementos <naoresponda@capitaosuplementos.com.br>'; }
 function makeCode(prefix: string) { return `${prefix}-${randomBytes(5).toString('hex').toUpperCase()}`; }
