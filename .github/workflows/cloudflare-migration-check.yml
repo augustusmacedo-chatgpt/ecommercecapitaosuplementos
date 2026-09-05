@@ -1,3 +1,4 @@
+# Cloudflare migration branch trigger verification
 name: Cloudflare Migration Check
 
 on:
