@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "api/cnpj.ts",
+    "api/bling/authorize.ts",
+    "api/bling/callback.ts",
+    "api/bling/config.ts",
+    "api/bling/order.ts",
+    "api/bling/pdv-report.ts",
+    "api/bling/pdv-sale.ts",
+    "api/bling/products.ts",
+    "api/bling/status.ts",
+    "api/bling/webhook.ts",
+    "api/customers/[action].ts",
+    "api/pontos/[action].ts",
+    "worker/index.ts"
+  ]
+}
