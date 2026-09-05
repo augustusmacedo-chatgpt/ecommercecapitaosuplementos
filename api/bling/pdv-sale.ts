@@ -15,6 +15,24 @@ function errorText(text: string) { try { const x = JSON.parse(text); return Stri
 function key(id: string) { return `pdv-orders/${createHash('sha256').update(id).digest('hex')}.json`; }
 async function exists(id: string) { try { const r = await get(key(id), { access: 'private', useCache: false }); return Boolean(r?.stream); } catch { return false; } }
 
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    if (url.searchParams.get('resource') !== 'sellers') return json({ error: 'Recurso não informado.' }, 400);
+    const token = await getBlingAccessToken();
+    const response = await fetch(`${BASE}/vendedores?pagina=1&limite=100`, { headers: { Accept: '1.0', Authorization: `Bearer ${token}`, 'enable-jwt': '1' } });
+    const text = await response.text();
+    if (!response.ok) return json({ error: `Não foi possível consultar os vendedores do Bling. ${errorText(text)}` }, response.status === 401 || response.status === 403 ? 403 : 502);
+    let parsed: any = {};
+    try { parsed = JSON.parse(text); } catch { parsed = {}; }
+    const sellers = Array.isArray(parsed?.data) ? parsed.data.map((seller: any) => ({ id: Number(seller.id), name: String(seller.nome || seller.name || seller.apelido || '').trim() })).filter((seller: { id: number; name: string }) => seller.id > 0 && seller.name) : [];
+    return json({ sellers }, 200, { 'Cache-Control': 'private, max-age=60' });
+  } catch (error) {
+    console.error('Bling sellers error:', error);
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível carregar os vendedores do Bling.' }, 503);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await readJsonBody(request) as Body;
