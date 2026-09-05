@@ -56,7 +56,7 @@ export async function reverseOrderPoints(order: OrderSnapshot) {
   if (account.entries.some((entry: PointsEntry) => entry.id === reversalId)) return { reversed: false, duplicate: true, balance: account.balance };
   const applied = applyEntry(account, { type: 'reversal', points: -Math.abs(earned.points), orderId, checkoutId, description: `Estorno dos pontos da compra #${orderId}` });
   const last = applied.entries[applied.entries.length - 1];
-  const entries = account.entries.some((entry: PointsEntry) => entry.id === reversalId) ? applied.entries : applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
+  const entries: PointsEntry[] = applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
   const next: PointsAccount = { ...applied, entries, cycleEarned: Math.max(0, applied.cycleEarned - Math.abs(earned.points)) };
   await saveAccount(next); await flushPendingPointEmails(next); return { reversed: true, points: Math.abs(earned.points), balance: next.balance };
 }
@@ -72,7 +72,7 @@ export async function reverseOrderRedemption(order: OrderSnapshot) {
   if (account.entries.some((entry: PointsEntry) => entry.id === reversalId)) return { reversed: false, duplicate: true, points: Math.abs(original.points), balance: account.balance };
   const applied = applyEntry(account, { type: 'reversal', points: Math.abs(original.points), orderId, checkoutId, description: `Devolução dos pontos resgatados no pedido #${orderId}` });
   const last = applied.entries[applied.entries.length - 1];
-  const entries = applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
+  const entries: PointsEntry[] = applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
   const next: PointsAccount = { ...applied, entries, reservations: (applied.reservations || []).map(item => item.id === reservationId && item.status === 'consumed' ? { ...item, status: 'released' as const } : item), lifetimeRedeemed: Math.max(0, applied.lifetimeRedeemed - Math.abs(original.points)), updatedAt: new Date().toISOString() };
   await saveAccount(next); return { reversed: true, points: Math.abs(original.points), balance: next.balance };
 }
