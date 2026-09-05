@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 type Product = { id: number; name: string; code?: string; price: number };
 type TrackedItem = { product: Product; quantity: number };
+type Seller = { id: number; name: string };
 
 const KEY = 'capitao-pdv-sale-guard';
 
@@ -14,11 +15,39 @@ export default function PdvRealSaleEnhancer() {
   useEffect(() => {
     if (location.pathname !== '/pdv') return;
     let products: Product[] = [];
+    let sellers: Seller[] = [];
     const tracked = new Map<number, TrackedItem>();
     let documentChoice: 'nfc' | 'receipt' | null = null;
     let submitting = false;
 
     const originalFetch = window.fetch.bind(window);
+
+    const loadSellers = async () => {
+      try {
+        const response = await originalFetch('/api/bling/pdv-sale?resource=sellers', { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !Array.isArray(data?.sellers)) throw new Error(data?.error || 'Não foi possível carregar os vendedores do Bling.');
+        sellers = data.sellers.map((seller: any) => ({ id: Number(seller.id), name: clean(String(seller.name || '')) })).filter((seller: Seller) => seller.id > 0 && seller.name);
+        const select = document.querySelector<HTMLSelectElement>('.seller-select');
+        if (!select || !sellers.length) return;
+        const current = clean(select.value);
+        const preferred = sellers.find(seller => normalize(seller.name) === normalize(current)) || sellers[0];
+        select.innerHTML = '';
+        for (const seller of sellers) {
+          const option = document.createElement('option');
+          option.value = seller.name;
+          option.textContent = seller.name;
+          option.dataset.blingSellerId = String(seller.id);
+          select.appendChild(option);
+        }
+        select.value = preferred.name;
+      } catch (error) {
+        console.warn('PDV: vendedores do Bling indisponíveis.', error);
+      }
+    };
+
+    void loadSellers();
+
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
       try {
@@ -76,6 +105,14 @@ export default function PdvRealSaleEnhancer() {
       return value.includes('newfit') ? 'newfit' : 'camapua';
     };
 
+    const readSeller = () => {
+      const select = document.querySelector<HTMLSelectElement>('.seller-select');
+      const name = clean(select?.value || '');
+      const selectedId = Number(select?.selectedOptions?.[0]?.dataset.blingSellerId || 0);
+      const fallback = sellers.find(seller => normalize(seller.name) === normalize(name));
+      return { name, id: selectedId || fallback?.id || 0 };
+    };
+
     const readPayment = () => {
       const selected = document.querySelector<HTMLElement>('.pdv-payment.selected');
       return clean(selected?.innerText || '').replace(/\n+/g, ' | ');
@@ -109,13 +146,19 @@ export default function PdvRealSaleEnhancer() {
       const payment = readPayment();
       const customer = readCustomer();
       const choice = readDocumentChoice();
-      if (!items.length || !payment || !choice) { submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash('Complete produtos, pagamento e documento antes de finalizar.', true); return; }
+      const seller = readSeller();
+      if (!items.length || !payment || !choice || !seller.id) {
+        submitting = false;
+        setButtonState(button, 'CONFIRMAR VENDA');
+        flash(!seller.id ? 'O vendedor do Bling ainda não foi carregado. Aguarde e tente novamente.' : 'Complete produtos, pagamento e documento antes de finalizar.', true);
+        return;
+      }
       const checkoutId = `PDV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
       try {
-        const response = await originalFetch('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkoutId, location: readLocation(), customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) }) });
+        const response = await originalFetch('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkoutId, location: readLocation(), sellerId: seller.id, sellerName: seller.name, customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) }) });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'Não foi possível registrar a venda no Bling.');
-        sessionStorage.setItem(KEY, JSON.stringify({ checkoutId, orderId: data.orderId, orderNumber: data.orderNumber, location: data.location, createdAt: new Date().toISOString() }));
+        sessionStorage.setItem(KEY, JSON.stringify({ checkoutId, orderId: data.orderId, orderNumber: data.orderNumber, location: data.location, sellerId: seller.id, createdAt: new Date().toISOString() }));
         flash(`Venda registrada no Bling${data.orderNumber ? ` • Pedido ${data.orderNumber}` : ''}.`);
         setButtonState(button, 'VENDA REGISTRADA', true);
         window.setTimeout(() => { window.location.reload(); }, 1100);

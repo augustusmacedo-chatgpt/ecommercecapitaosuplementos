@@ -1,78 +1,13 @@
 import { createHash } from 'node:crypto';
-import { get } from '@vercel/blob';
+import { get, put } from '@vercel/blob';
 import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
-
-type Item = { id?: number; name?: string; code?: string; price?: number; quantity?: number };
-type Body = { checkoutId?: string; location?: 'camapua' | 'newfit'; customer?: { name?: string; document?: string; phone?: string; email?: string }; payment?: string; documentChoice?: 'nfc' | 'receipt'; items?: Item[]; total?: number };
-type Channel = { id?: number; nome?: string; descricao?: string; idUnidadeNegocio?: number | string; unidadeNegocio?: { id?: number } };
-const BASE = 'https://api.bling.com.br/Api/v3';
-const CHANNELS = { camapua: 206151819, newfit: 206151809 } as const;
-function clean(v: unknown) { return String(v ?? '').trim(); }
-function digits(v: unknown) { return clean(v).replace(/\D/g, ''); }
-function amount(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function errorText(text: string) { try { const x = JSON.parse(text); return String(x?.error?.message || x?.message || x?.error || text).slice(0, 500); } catch { return text.slice(0, 500); } }
-function key(id: string) { return `pdv-orders/${createHash('sha256').update(id).digest('hex')}.json`; }
-async function exists(id: string) { try { const r = await get(key(id), { access: 'private', useCache: false }); return Boolean(r?.stream); } catch { return false; } }
-
-export async function POST(request: Request) {
-  try {
-    const body = await readJsonBody(request) as Body;
-    const checkoutId = clean(body.checkoutId);
-    const location = body.location;
-    const items = Array.isArray(body.items) ? body.items : [];
-    if (!checkoutId) return json({ error: 'Identificador da venda não informado.' }, 400);
-    if (!['camapua', 'newfit'].includes(String(location))) return json({ error: 'Loja do PDV não informada.' }, 400);
-    if (!items.length) return json({ error: 'A venda está sem produtos.' }, 400);
-    if (await exists(checkoutId)) return json({ created: true, duplicate: true, checkoutId }, 200);
-
-    const token = await getBlingAccessToken();
-    const headers = { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'enable-jwt': '1' };
-    const channelId = CHANNELS[location];
-    const channelResponse = await fetch(`${BASE}/canais-venda/${channelId}`, { headers });
-    const channelText = await channelResponse.text();
-    if (!channelResponse.ok) return json({ error: `Não foi possível consultar a Loja Física no Bling. ${errorText(channelText)}` }, 502);
-    let channel: { data?: Channel } = {};
-    try { channel = JSON.parse(channelText); } catch { channel = {}; }
-    const resolvedUnitId = Number(channel.data?.idUnidadeNegocio || channel.data?.unidadeNegocio?.id || 0);
-
-    const document = digits(body.customer?.document);
-    let contactId = 0;
-    if (document) {
-      const lookup = await fetch(`${BASE}/contatos?numeroDocumento=${encodeURIComponent(document)}&limite=1`, { headers });
-      if (!lookup.ok) return json({ error: `Não foi possível consultar o cliente. ${errorText(await lookup.text())}` }, 502);
-      const found = await lookup.json() as { data?: Array<{ id?: number }> };
-      contactId = Number(found.data?.[0]?.id || 0);
-    }
-
-    const normalized = items.map(item => ({ produto: { id: Number(item.id) }, codigo: clean(item.code) || undefined, descricao: clean(item.name) || undefined, unidade: 'UN', quantidade: Math.max(1, Math.floor(amount(item.quantity || 1))), valor: amount(item.price), desconto: 0 })).filter(item => Number.isInteger(item.produto.id) && item.produto.id > 0 && item.valor > 0);
-    if (!normalized.length) return json({ error: 'Nenhum produto válido foi identificado.' }, 400);
-    const subtotal = normalized.reduce((s, item) => s + item.quantidade * item.valor, 0);
-    const payment = clean(body.payment) || 'NÃO INFORMADO';
-    const customerName = clean(body.customer?.name);
-    const customerPhone = clean(body.customer?.phone);
-    const customerEmail = clean(body.customer?.email);
-    const documentLabel = body.documentChoice === 'nfc' ? 'NFC-e' : 'COMPROVANTE';
-    const payload: Record<string, any> = {
-      numeroLoja: checkoutId,
-      data: new Date().toISOString().slice(0, 10),
-      loja: { id: channelId },
-      ...(resolvedUnitId > 0 ? { unidadeNegocio: { id: resolvedUnitId } } : {}),
-      ...(contactId ? { contato: { id: contactId } } : {}),
-      itens: normalized,
-      observacoes: [`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`, `LOJA: ${location === 'camapua' ? 'CAMAPUÃ' : 'NEWFIT'}`, `CANAL LOJA FÍSICA: ${channelId}`, `PAGAMENTO: ${payment}`, `DOCUMENTO: ${documentLabel}`, customerName ? `CLIENTE: ${customerName}` : '', customerPhone ? `TELEFONE: ${customerPhone}` : '', customerEmail ? `E-MAIL: ${customerEmail}` : ''].filter(Boolean).join('\n'),
-      observacoesInternas: `PDV CHECKOUT: ${checkoutId} | LOJA: ${location} | CANAL: ${channelId}`,
-    };
-    const response = await fetch(`${BASE}/pedidos/vendas`, { method: 'POST', headers, body: JSON.stringify(payload) });
-    const text = await response.text();
-    if (!response.ok) return json({ error: `O Bling rejeitou a venda. ${errorText(text)}` }, response.status === 401 || response.status === 403 ? 403 : 422);
-    let result: any = {}; try { result = JSON.parse(text); } catch {}
-    const orderId = Number(result?.data?.id || 0);
-    const orderNumber = Number(result?.data?.numero || 0) || undefined;
-    if (!orderId) return json({ error: 'O Bling recebeu a venda, mas não retornou o ID do pedido.' }, 502);
-    return json({ created: true, orderId, orderNumber, checkoutId, location, channelId, unitId: resolvedUnitId || null, subtotal, total: subtotal, documentChoice: body.documentChoice || null }, 201);
-  } catch (error) {
-    console.error('PDV sale Bling error:', error);
-    return json({ error: error instanceof Error ? error.message : 'Não foi possível registrar a venda no Bling.' }, 503);
-  }
-}
+import { sessionUser } from '../lib/pdv-auth.js';
+import { loadCashSession, saveCashSession, paymentBreakdown, sumBreakdown, divergence } from '../lib/pdv-cash.js';
+type Item={id?:number;name?:string;code?:string;price?:number;quantity?:number}; type Body={checkoutId?:string;location?:'camapua'|'newfit';customer?:{name?:string;document?:string;phone?:string;email?:string};payment?:string;documentChoice?:'nfc'|'receipt';items?:Item[]}; type Channel={id?:number;idUnidadeNegocio?:number|string;unidadeNegocio?:{id?:number}}; const BASE='https://api.bling.com.br/Api/v3'; const CHANNELS={camapua:206151819,newfit:206151809} as const; const clean=(v:any)=>String(v??'').trim(); const digits=(v:any)=>clean(v).replace(/\D/g,''); const amount=(v:any)=>Number.isFinite(Number(v))?Number(v):0; const key=(id:string)=>`pdv-orders/${createHash('sha256').update(id).digest('hex')}.json`;
+async function exists(id:string){try{const r=await get(key(id),{access:'private',useCache:false});return Boolean(r?.stream)}catch{return false}} async function save(id:string,data:any){await put(key(id),JSON.stringify(data),{access:'private',useCache:false,contentType:'application/json'})} function errorText(t:string){try{const x=JSON.parse(t);return String(x?.error?.message||x?.message||x?.error||t).slice(0,500)}catch{return t.slice(0,500)}} function dateNow(){return new Date().toISOString().slice(0,10)}
+export async function GET(req:Request){try{const u=new URL(req.url),resource=u.searchParams.get('resource');if(resource==='sellers'){const token=await getBlingAccessToken(),r=await fetch(`${BASE}/vendedores?pagina=1&limite=100`,{headers:{Accept:'1.0',Authorization:`Bearer ${token}`,'enable-jwt':'1'}}),t=await r.text();if(!r.ok)return json({error:`Não foi possível consultar os vendedores do Bling. ${errorText(t)}`},r.status===401||r.status===403?403:502);let d:any={};try{d=JSON.parse(t)}catch{}const sellers=Array.isArray(d?.data)?d.data.map((s:any)=>({id:Number(s.id),name:clean(s.nome||s.name||s.apelido)})).filter((s:any)=>s.id>0&&s.name):[];return json({sellers},200,{'Cache-Control':'private,max-age=60'})}if(resource==='cash-session'){const user=await sessionUser(req);if(!user)return json({error:'Login do PDV necessário.'},401);const store=(u.searchParams.get('store')||'camapua') as 'camapua'|'newfit';const date=u.searchParams.get('date')||dateNow();if(!['camapua','newfit'].includes(store)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return json({error:'Loja ou data inválida.'},400);const cash=await loadCashSession(store,date);return json({cash},200,{'Cache-Control':'no-store'})}if(resource==='cash-admin'){const user=await sessionUser(req);if(!user||user.role!=='ADMIN')return json({error:'Acesso administrativo necessário.'},403);const store=(u.searchParams.get('store')||'camapua') as 'camapua'|'newfit';const date=u.searchParams.get('date')||dateNow();if(!['camapua','newfit'].includes(store)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return json({error:'Loja ou data inválida.'},400);const cash=await loadCashSession(store,date);if(!cash)return json({cash:null,summary:null},200,{'Cache-Control':'no-store'});const byPayment=paymentBreakdown(cash.sales||[]);const total=sumBreakdown(byPayment);return json({cash,summary:{sales:(cash.sales||[]).length,byPayment,total,handoffs:cash.handoffs||[],openedBy:{id:cash.openedByUserId,name:cash.openedByName,at:cash.openedAt},closedBy:cash.finalClose?{id:cash.finalClose.closedByUserId,name:cash.finalClose.closedByName,at:cash.finalClose.closedAt}:null}},200,{'Cache-Control':'no-store'})}return json({error:'Recurso não informado.'},400)}catch(e){return json({error:e instanceof Error?e.message:'Não foi possível carregar o recurso.'},503)}}
+export async function POST(req:Request){try{const user=await sessionUser(req);if(!user)return json({error:'Login do PDV necessário.'},401);const b=await readJsonBody(req) as Body & {resource?:string;receivedByPayment?:Record<string,number>;notes?:string},resource=clean(b.resource);const location=b.location;
+ if(resource==='cash-handoff'){if(!['camapua','newfit'].includes(String(location)))return json({error:'Loja do caixa não informada.'},400);const cash=await loadCashSession(location!,dateNow());if(!cash||cash.status!=='OPEN')return json({error:'Não existe caixa aberto para esta loja hoje.'},409);const since=cash.handoffs?.length?cash.handoffs[cash.handoffs.length-1].at:cash.openedAt;const segment=(cash.sales||[]).filter(s=>s.at>since&&s.operatorId===user.id);const expectedByPayment=paymentBreakdown(segment);const deliveredByPayment=b.receivedByPayment||{};const expectedTotal=sumBreakdown(expectedByPayment),deliveredTotal=sumBreakdown(deliveredByPayment),diff=divergence(expectedByPayment,deliveredByPayment);const handoff={id:`handoff_${Date.now().toString(36)}`,fromUserId:user.id,fromUserName:user.name,at:new Date().toISOString(),expectedByPayment,deliveredByPayment,expectedTotal,deliveredTotal,divergence:diff,notes:clean(b.notes)||undefined};cash.handoffs.push(handoff);await saveCashSession(cash);return json({ok:true,handoff,cash},201)}
+ if(resource==='cash-close'){if(user.role!=='ADMIN'&&user.role!=='OPERATOR')return json({error:'Acesso ao fechamento necessário.'},403);if(!['camapua','newfit'].includes(String(location)))return json({error:'Loja do caixa não informada.'},400);const cash=await loadCashSession(location!,dateNow());if(!cash||cash.status!=='OPEN')return json({error:'Não existe caixa aberto para esta loja hoje.'},409);const expectedByPayment=paymentBreakdown(cash.sales||[]),deliveredByPayment=b.receivedByPayment||{},expectedTotal=sumBreakdown(expectedByPayment),deliveredTotal=sumBreakdown(deliveredByPayment),diff=divergence(expectedByPayment,deliveredByPayment);cash.finalClose={closedByUserId:user.id,closedByName:user.name,closedAt:new Date().toISOString(),expectedByPayment,deliveredByPayment,expectedTotal,deliveredTotal,divergence:diff,notes:clean(b.notes)||undefined};cash.status='CLOSED';await saveCashSession(cash);return json({ok:true,cash},200)}
+ if(!user.blingSellerId)return json({error:'Seu usuário do PDV ainda não está vinculado a um vendedor do Bling.'},409);const checkoutId=clean(b.checkoutId),items=Array.isArray(b.items)?b.items:[];if(!checkoutId)return json({error:'Identificador da venda não informado.'},400);if(!['camapua','newfit'].includes(String(location)))return json({error:'Loja do PDV não informada.'},400);if(!items.length)return json({error:'A venda está sem produtos.'},400);const businessDate=dateNow(),cash=await loadCashSession(location!,businessDate);if(!cash||cash.status!=='OPEN')return json({error:`Não existe caixa aberto para ${location==='camapua'?'CAMAPUÃ':'NEWFIT'} hoje. Abra o caixa antes de vender.`},409);if(await exists(checkoutId))return json({created:true,duplicate:true,checkoutId},200);const token=await getBlingAccessToken(),headers={Accept:'1.0','Content-Type':'application/json',Authorization:`Bearer ${token}`,'enable-jwt':'1'},channelId=CHANNELS[location!];const cr=await fetch(`${BASE}/canais-venda/${channelId}`,{headers}),ct=await cr.text();if(!cr.ok)return json({error:`Não foi possível consultar a Loja Física no Bling. ${errorText(ct)}`},502);let channel:{data?:Channel}={};try{channel=JSON.parse(ct)}catch{}const unitId=Number(channel.data?.idUnidadeNegocio||channel.data?.unidadeNegocio?.id||0),document=digits(b.customer?.document);let contactId=0;if(document){const lr=await fetch(`${BASE}/contatos?numeroDocumento=${encodeURIComponent(document)}&limite=1`,{headers});if(!lr.ok)return json({error:`Não foi possível consultar o cliente. ${errorText(await lr.text())}`},502);const found=await lr.json() as any;contactId=Number(found.data?.[0]?.id||0)}const normalized=items.map(i=>({produto:{id:Number(i.id)},codigo:clean(i.code)||undefined,descricao:clean(i.name)||undefined,unidade:'UN',quantidade:Math.max(1,Math.floor(amount(i.quantity||1))),valor:amount(i.price),desconto:0})).filter(i=>Number.isInteger(i.produto.id)&&i.produto.id>0&&i.valor>0);if(!normalized.length)return json({error:'Nenhum produto válido foi identificado.'},400);const subtotal=normalized.reduce((s,i)=>s+i.quantidade*i.valor,0),payment=clean(b.payment)||'NÃO INFORMADO',documentLabel=b.documentChoice==='nfc'?'NFC-e':'COMPROVANTE',customerName=clean(b.customer?.name),customerPhone=clean(b.customer?.phone),customerEmail=clean(b.customer?.email);const payload:any={numeroLoja:checkoutId,data:businessDate,loja:{id:channelId},vendedor:{id:user.blingSellerId},...(unitId>0?{unidadeNegocio:{id:unitId}}:{}),...(contactId?{contato:{id:contactId}}:{}),itens:normalized,observacoes:[`VENDA REALIZADA PELO PDV CAPITÃO SUPLEMENTOS`,`LOJA: ${location==='camapua'?'CAMAPUÃ':'NEWFIT'}`,`CANAL LOJA FÍSICA: ${channelId}`,`CAIXA: ${cash.register}`,`USUÁRIO PDV: ${user.name}`,`VENDEDOR BLING: ${user.blingSellerName||user.blingSellerId}`,`PAGAMENTO: ${payment}`,`DOCUMENTO: ${documentLabel}`,customerName?`CLIENTE: ${customerName}`:'',customerPhone?`TELEFONE: ${customerPhone}`:'',customerEmail?`E-MAIL: ${customerEmail}`:''].filter(Boolean).join('\n'),observacoesInternas:`PDV CHECKOUT: ${checkoutId} | CAIXA: ${cash.id} | LOJA: ${location} | USUÁRIO: ${user.id} | VENDEDOR BLING: ${user.blingSellerId}`};const r=await fetch(`${BASE}/pedidos/vendas`,{method:'POST',headers,body:JSON.stringify(payload)}),t=await r.text();if(!r.ok)return json({error:`O Bling rejeitou a venda. ${errorText(t)}`},r.status===401||r.status===403?403:422);let result:any={};try{result=JSON.parse(t)}catch{}const orderId=Number(result?.data?.id||0),orderNumber=Number(result?.data?.numero||0)||undefined;if(!orderId)return json({error:'O Bling recebeu a venda, mas não retornou o ID do pedido.'},502);const response={created:true,orderId,orderNumber,checkoutId,location,sellerId:user.blingSellerId,sellerName:user.blingSellerName,operatorId:user.id,operatorName:user.name,cashId:cash.id,register:cash.register,channelId,unitId:unitId||null,subtotal,total:subtotal,documentChoice:b.documentChoice||null};cash.sales.push({checkoutId,orderId,orderNumber,at:new Date().toISOString(),operatorId:user.id,operatorName:user.name,sellerId:user.blingSellerId,sellerName:user.blingSellerName,payment,total:subtotal,documentChoice:b.documentChoice||null});await saveCashSession(cash);await save(checkoutId,response);return json(response,201)}catch(e){console.error('PDV sale Bling error:',e);return json({error:e instanceof Error?e.message:'Não foi possível registrar a operação no caixa.'},503)}}
