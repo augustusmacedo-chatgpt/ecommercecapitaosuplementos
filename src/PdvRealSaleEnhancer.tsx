@@ -24,7 +24,7 @@ export default function PdvRealSaleEnhancer() {
 
     const loadSellers = async () => {
       try {
-        const response = await originalFetch('/api/bling/status?resource=sellers', { cache: 'no-store' });
+        const response = await originalFetch('/api/bling/pdv-sale?resource=sellers', { cache: 'no-store' });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !Array.isArray(data?.sellers)) throw new Error(data?.error || 'Não foi possível carregar os vendedores do Bling.');
         sellers = data.sellers.map((seller: any) => ({ id: Number(seller.id), name: clean(String(seller.name || '')) })).filter((seller: Seller) => seller.id > 0 && seller.name);
