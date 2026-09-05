@@ -20,7 +20,6 @@ export async function GET(request: Request) {
     if (!config?.clientId || !config.clientSecret) return fail('As credenciais do aplicativo não estão configuradas.');
 
     const basic = btoa(`${config.clientId}:${config.clientSecret}`);
-    const redirectUri = new URL('/api/bling/callback', request.url).toString();
     const tokenResponse = await fetch('https://api.bling.com.br/Api/v3/oauth/token', {
       method: 'POST',
       headers: {
@@ -29,7 +28,7 @@ export async function GET(request: Request) {
         Authorization: `Basic ${basic}`,
         'enable-jwt': '1',
       },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }).toString(),
+      body: new URLSearchParams({ grant_type: 'authorization_code', code }).toString(),
     });
 
     if (!tokenResponse.ok) {
