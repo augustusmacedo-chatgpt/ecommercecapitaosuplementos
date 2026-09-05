@@ -1,18 +1,17 @@
-import { get, put } from '@vercel/blob';
+import { get, put } from './storage.js';
 import { accountStorageKey, applyEntry, canonicalCustomerKey, CYCLE_POINTS, emptyPointsAccount, pointsFromOrderTotal } from './pontos.js';
 import { createBonusRecord, flushPendingPointEmails, queueBonusEmail, queueMilestoneEmails } from './pontos-notifications.js';
 
 type OrderSnapshot = Record<string, any>;
-function blobOptions() { const token = process.env.BLOB_READ_WRITE_TOKEN; return token ? { access: 'private' as const, useCache: false, token } : { access: 'private' as const, useCache: false }; }
 async function loadAccount(customerKey: string) {
   try {
-    const result = await get(accountStorageKey(customerKey), blobOptions());
+    const result = await get(accountStorageKey(customerKey));
     if (!result?.stream) return emptyPointsAccount(customerKey);
     const parsed = JSON.parse(await new Response(result.stream).text());
     return { ...emptyPointsAccount(customerKey), ...parsed, customerKey, entries: Array.isArray(parsed.entries) ? parsed.entries : [], bonuses: Array.isArray(parsed.bonuses) ? parsed.bonuses : [], reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [], pendingEmails: Array.isArray(parsed.pendingEmails) ? parsed.pendingEmails : [], sentEmailIds: Array.isArray(parsed.sentEmailIds) ? parsed.sentEmailIds : [], cycleEarned: Number(parsed.cycleEarned || 0) };
   } catch { return emptyPointsAccount(customerKey); }
 }
-async function saveAccount(account: ReturnType<typeof emptyPointsAccount>) { const token = process.env.BLOB_READ_WRITE_TOKEN; await put(accountStorageKey(account.customerKey), JSON.stringify(account), { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json', ...(token ? { token } : {}) }); }
+async function saveAccount(account: ReturnType<typeof emptyPointsAccount>) { await put(accountStorageKey(account.customerKey), JSON.stringify(account), { contentType: 'application/json' }); }
 function orderDocument(order: OrderSnapshot) { return order.customerDocument || order.contato?.numeroDocumento || order.customer?.document || order.cliente?.numeroDocumento || ''; }
 function orderEmail(order: OrderSnapshot) { return String(order.customerEmail || order.email || order.customer?.email || order.contato?.email || '').trim().toLowerCase(); }
 function statusText(status: unknown) { return typeof status === 'object' && status !== null ? String((status as any).descricao || (status as any).nome || (status as any).valor || '') : String(status || ''); }
