@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { get, put } from '@vercel/blob';
+import { get, put, hasStorage } from '../../src/server/storage.js';
 
 const STORE_KEY = 'pdv/users.json';
 const SESSION_COOKIE = 'pdv_session';
@@ -7,9 +7,7 @@ const SESSION_TTL = 60 * 60 * 8;
 const PASSWORD_MIN = 8;
 
 type StoredUser = { id: string; name: string; username: string; email: string; role: 'ADMIN' | 'OPERATOR'; active: boolean; blingSellerId: number | null; blingSellerName: string | null; passwordHash: string; passwordSalt: string; recoveryHash?: string; recoveryExpiresAt?: number; createdAt: string; updatedAt: string };
-function secret() { return process.env.PDV_AUTH_SECRET || process.env.BLOB_READ_WRITE_TOKEN || process.env.RESEND_API_KEY || ''; }
-function storageOptions() { return { access: 'private' as const, useCache: false }; }
-function hasStorage() { return Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN); }
+function secret() { return process.env.PDV_AUTH_SECRET || process.env.RESEND_API_KEY || ''; }
 function clean(value: unknown) { return String(value ?? '').trim(); }
 function normalize(value: unknown) { return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR'); }
 function safeBase64(value: Buffer) { return value.toString('base64url'); }
@@ -17,8 +15,8 @@ function fromBase64(value: string) { return Buffer.from(value, 'base64url'); }
 export function assertPassword(password: string) { if (password.length < PASSWORD_MIN) throw new Error(`A senha deve ter pelo menos ${PASSWORD_MIN} caracteres.`); }
 export function hashPassword(password: string, salt = randomBytes(16)) { assertPassword(password); return { salt: safeBase64(salt), hash: safeBase64(scryptSync(password, salt, 64)) }; }
 export function verifyPassword(password: string, salt: string, hash: string) { try { const derived = scryptSync(password, fromBase64(salt), 64); const expected = fromBase64(hash); return expected.length === derived.length && timingSafeEqual(expected, derived); } catch { return false; } }
-export async function loadUsers(): Promise<StoredUser[]> { if (!hasStorage()) throw new Error('Armazenamento persistente não está conectado na Vercel.'); try { const result = await get(STORE_KEY, storageOptions()); if (!result?.stream) return []; const parsed = JSON.parse(await new Response(result.stream).text()) as { users?: StoredUser[] }; return Array.isArray(parsed.users) ? parsed.users : []; } catch (error: any) { if (error?.statusCode === 404) return []; return []; } }
-export async function saveUsers(users: StoredUser[]) { if (!hasStorage()) throw new Error('Armazenamento persistente não está conectado na Vercel.'); await put(STORE_KEY, JSON.stringify({ version: 1, users }, null, 2), { ...storageOptions(), contentType: 'application/json' }); }
+export async function loadUsers(): Promise<StoredUser[]> { if (!hasStorage()) throw new Error('Armazenamento persistente do PDV não está conectado ao Cloudflare R2.'); try { const result = await get(STORE_KEY); if (!result?.stream) return []; const parsed = JSON.parse(await new Response(result.stream).text()) as { users?: StoredUser[] }; return Array.isArray(parsed.users) ? parsed.users : []; } catch (error: any) { if (error?.statusCode === 404) return []; return []; } }
+export async function saveUsers(users: StoredUser[]) { if (!hasStorage()) throw new Error('Armazenamento persistente do PDV não está conectado ao Cloudflare R2.'); await put(STORE_KEY, JSON.stringify({ version: 1, users }, null, 2), { contentType: 'application/json' }); }
 export function publicUser(user: StoredUser) { return { id: user.id, name: user.name, username: user.username, email: user.email, role: user.role, active: user.active, blingSellerId: user.blingSellerId, blingSellerName: user.blingSellerName, createdAt: user.createdAt, updatedAt: user.updatedAt }; }
 export function findUser(users: StoredUser[], identifier: string) { const value = normalize(identifier); return users.find(user => normalize(user.username) === value || normalize(user.email) === value); }
 export function createUserRecord(input: { name: string; username: string; email: string; role?: 'ADMIN' | 'OPERATOR'; active?: boolean; blingSellerId?: number | null; blingSellerName?: string | null; password: string }) { const now = new Date().toISOString(); const password = hashPassword(input.password); return { id: `usr_${randomBytes(9).toString('hex')}`, name: clean(input.name), username: clean(input.username), email: clean(input.email).toLowerCase(), role: input.role === 'ADMIN' ? 'ADMIN' : 'OPERATOR', active: input.active !== false, blingSellerId: Number(input.blingSellerId) > 0 ? Number(input.blingSellerId) : null, blingSellerName: clean(input.blingSellerName) || null, passwordHash: password.hash, passwordSalt: password.salt, createdAt: now, updatedAt: now } satisfies StoredUser; }
