@@ -7,7 +7,7 @@ const SESSION_TTL = 60 * 60 * 8;
 const PASSWORD_MIN = 8;
 
 type StoredUser = { id: string; name: string; username: string; email: string; role: 'ADMIN' | 'OPERATOR'; active: boolean; blingSellerId: number | null; blingSellerName: string | null; passwordHash: string; passwordSalt: string; recoveryHash?: string; recoveryExpiresAt?: number; createdAt: string; updatedAt: string };
-function secret() { return process.env.PDV_AUTH_SECRET || process.env.RESEND_API_KEY || ''; }
+function secret() { return process.env.PDV_AUTH_SECRET || ''; }
 function clean(value: unknown) { return String(value ?? '').trim(); }
 function normalize(value: unknown) { return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR'); }
 function safeBase64(value: Buffer) { return value.toString('base64url'); }
