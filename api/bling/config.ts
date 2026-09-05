@@ -12,7 +12,15 @@ export async function GET() {
   if (!hasPersistentStorage()) return storageUnavailable();
   try {
     const data = await loadStoredData();
-    return json({ configured: Boolean(data?.clientId && data?.clientSecret), inviteLink: data?.inviteLink || '' }, 200, { 'Cache-Control': 'no-store' });
+    return json(
+      {
+        configured: Boolean(data?.clientId && data?.clientSecret),
+        secretConfigured: Boolean(data?.clientSecret),
+        inviteLink: data?.inviteLink || '',
+      },
+      200,
+      { 'Cache-Control': 'no-store' },
+    );
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Não foi possível carregar a configuração do Bling.' }, 503);
   }
@@ -28,7 +36,7 @@ export async function POST(request: Request) {
     const inviteLink = String(body.inviteLink ?? current?.inviteLink ?? '').trim();
     if (!clientId || !clientSecret) return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
     await saveStoredData({ ...current, clientId, clientSecret, inviteLink });
-    return json({ ok: true, configured: true });
+    return json({ ok: true, configured: true, secretConfigured: true });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Não foi possível salvar a configuração do Bling.' }, 503);
   }
