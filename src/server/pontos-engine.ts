@@ -9,7 +9,7 @@ async function loadAccount(customerKey: string): Promise<LoadedAccount> {
     const result = await get(accountStorageKey(customerKey));
     if (!result?.stream) return emptyPointsAccount(customerKey);
     const parsed = JSON.parse(await new Response(result.stream).text()) as Partial<PointsAccount>;
-    return { ...emptyPointsAccount(customerKey), ...parsed, customerKey, entries: Array.isArray(parsed.entries) ? parsed.entries as PointsEntry[] : [], bonuses: Array.isArray(parsed.bonuses) ? parsed.bonuses : [], reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [], pendingEmails: Array.isArray(parsed.pendingEmails) ? parsed.pendingEmails : [], sentEmailIds: Array.isArray(parsed.sentEmailIds) ? parsed.sentEmailIds : [], cycleEarned: Number(parsed.cycleEarned || 0) };
+    return { ...emptyPointsAccount(customerKey), ...parsed, customerKey, email: parsed.email ?? null, entries: Array.isArray(parsed.entries) ? parsed.entries as PointsEntry[] : [], bonuses: Array.isArray(parsed.bonuses) ? parsed.bonuses : [], reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [], pendingEmails: Array.isArray(parsed.pendingEmails) ? parsed.pendingEmails : [], sentEmailIds: Array.isArray(parsed.sentEmailIds) ? parsed.sentEmailIds : [], cycleEarned: Number(parsed.cycleEarned || 0) };
   } catch { return emptyPointsAccount(customerKey); }
 }
 async function saveAccount(account: LoadedAccount) { await put(accountStorageKey(account.customerKey), JSON.stringify(account), { contentType: 'application/json' }); }
@@ -28,7 +28,7 @@ export async function awardOrderPoints(order: OrderSnapshot) {
   const existing = account.entries.find((entry: PointsEntry) => entry.type === 'earn' && (entry.orderId === orderId || entry.checkoutId === checkoutId));
   if (existing) return { earned: false, duplicate: true, points: existing.points, balance: account.balance };
   const points = pointsFromOrderTotal(total); if (!points) return { earned: false, reason: 'zero-points' as const };
-  let next = { ...account, email: orderEmail(order) || account.email || null };
+  let next: PointsAccount = { ...account, email: orderEmail(order) || account.email || null };
   const previousCycleEarned = next.cycleEarned || 0;
   next = applyEntry(next, { type: 'earn', points, orderId, checkoutId, description: `Pontos da compra #${orderId}` });
   next = await queueMilestoneEmails(next, previousCycleEarned);
@@ -40,9 +40,7 @@ export async function awardOrderPoints(order: OrderSnapshot) {
     if (!next.entries.some((entry: PointsEntry) => entry.id === conversionId)) {
       next = { ...next, balance: Math.max(0, next.balance - CYCLE_POINTS), cycleEarned: next.cycleEarned - CYCLE_POINTS, entries: [...next.entries, { id: conversionId, type: 'redeem', points: -CYCLE_POINTS, description: `Conversão automática do ciclo ${cycle} em bônus de R$ 50,00`, createdAt: new Date().toISOString() }], lifetimeRedeemed: next.lifetimeRedeemed + CYCLE_POINTS, bonuses: [...(next.bonuses || []).filter(item => item.id !== bonus.id), bonus], updatedAt: new Date().toISOString() };
       next = await queueMilestoneEmails(next, 0);
-    } else {
-      next = { ...next, cycleEarned: next.cycleEarned - CYCLE_POINTS, balance: Math.max(0, next.balance - CYCLE_POINTS) };
-    }
+    } else next = { ...next, cycleEarned: next.cycleEarned - CYCLE_POINTS, balance: Math.max(0, next.balance - CYCLE_POINTS) };
   }
   await saveAccount(next); await flushPendingPointEmails(next); return { earned: true, points, balance: next.balance, customerKey };
 }
@@ -58,8 +56,8 @@ export async function reverseOrderPoints(order: OrderSnapshot) {
   if (account.entries.some((entry: PointsEntry) => entry.id === reversalId)) return { reversed: false, duplicate: true, balance: account.balance };
   const applied = applyEntry(account, { type: 'reversal', points: -Math.abs(earned.points), orderId, checkoutId, description: `Estorno dos pontos da compra #${orderId}` });
   const last = applied.entries[applied.entries.length - 1];
-  const entries = applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
-  const next = { ...applied, entries, cycleEarned: Math.max(0, applied.cycleEarned - Math.abs(earned.points)) };
+  const entries = account.entries.some((entry: PointsEntry) => entry.id === reversalId) ? applied.entries : applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
+  const next: PointsAccount = { ...applied, entries, cycleEarned: Math.max(0, applied.cycleEarned - Math.abs(earned.points)) };
   await saveAccount(next); await flushPendingPointEmails(next); return { reversed: true, points: Math.abs(earned.points), balance: next.balance };
 }
 
@@ -75,6 +73,6 @@ export async function reverseOrderRedemption(order: OrderSnapshot) {
   const applied = applyEntry(account, { type: 'reversal', points: Math.abs(original.points), orderId, checkoutId, description: `Devolução dos pontos resgatados no pedido #${orderId}` });
   const last = applied.entries[applied.entries.length - 1];
   const entries = applied.entries.filter((entry: PointsEntry) => entry.id !== last.id).concat({ ...last, id: reversalId });
-  const next = { ...applied, entries, reservations: (applied.reservations || []).map(item => item.id === reservationId && item.status === 'consumed' ? { ...item, status: 'released' as const } : item), lifetimeRedeemed: Math.max(0, applied.lifetimeRedeemed - Math.abs(original.points)), updatedAt: new Date().toISOString() };
+  const next: PointsAccount = { ...applied, entries, reservations: (applied.reservations || []).map(item => item.id === reservationId && item.status === 'consumed' ? { ...item, status: 'released' as const } : item), lifetimeRedeemed: Math.max(0, applied.lifetimeRedeemed - Math.abs(original.points)), updatedAt: new Date().toISOString() };
   await saveAccount(next); return { reversed: true, points: Math.abs(original.points), balance: next.balance };
 }
