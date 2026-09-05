@@ -12,5 +12,8 @@
       "binding": "APP_STORAGE",
       "bucket_name": "capitao-suplementos-storage"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true
+  }
 }
