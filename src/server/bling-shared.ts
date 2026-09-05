@@ -1,5 +1,4 @@
 export const STATE_COOKIE = 'capitao_bling_oauth_state';
-export const BLING_REDIRECT_URI = `${(process.env.PUBLIC_APP_URL || 'https://ecommercecapitaosuplementos.vercel.app').replace(/\/$/, '')}/api/bling/callback`;
 export type BlingConfig = { clientId: string; clientSecret: string; inviteLink?: string };
 type RequestLike = Request & { body?: unknown; on?: (event: string, listener: (...args: any[]) => void) => void };
 function headerValue(request: RequestLike, name: string) {
