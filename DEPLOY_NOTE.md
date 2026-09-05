@@ -1,3 +1,3 @@
-# Deploy checkpoint
+# Cloudflare deploy
 
-Function routes consolidated to stay within the Vercel Hobby deployment limit.
+The application is configured for Cloudflare Workers + R2. CI validates the Cloudflare typecheck and Vite build on `feat/cloudflare-migration`.
