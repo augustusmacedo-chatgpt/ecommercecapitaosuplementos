@@ -5,10 +5,10 @@ import AdminOperations from './AdminOperations';
 import './admin-qg.css';
 
 type PreviewProduct = { name: string; brand: string; price: string; image?: string };
-type BlingApiProduct = { id?: number; nome?: string; descricao?: string; descricaoCurta?: string; preco?: number; imagemURL?: string; imagens?: Array<{ link?: string; url?: string }>; categoria?: { nome?: string } };
+type BlingApiProduct = { id?: number; nome?: string; descricao?: string; descricaoCurta?: string; preco?: number; imagemURL?: string; imagemOriginal?: string; imagemMiniatura?: string; imagens?: Array<{ link?: string; url?: string }>; categoria?: { nome?: string } };
 const mockProducts: PreviewProduct[] = [{ name: 'Creatina 300g', brand: 'Produto Bling', price: 'R$ 00,00' }, { name: 'Whey Protein 1kg', brand: 'Produto Bling', price: 'R$ 00,00' }, { name: 'Pré-Treino 300g', brand: 'Produto Bling', price: 'R$ 00,00' }, { name: 'Termogênico 60 caps', brand: 'Produto Bling', price: 'R$ 00,00' }];
 function formatBlingPrice(value?: number) { return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Consultar'; }
-function toPreviewProduct(product: BlingApiProduct): PreviewProduct { const image = product.imagemURL || product.imagens?.find(item => item.link)?.link || product.imagens?.find(item => item.url)?.url; return { name: product.nome || product.descricao || product.descricaoCurta || 'Produto Bling', brand: product.categoria?.nome || 'Bling', price: formatBlingPrice(product.preco), image }; }
+function toPreviewProduct(product: BlingApiProduct): PreviewProduct { const image = product.imagemOriginal || product.imagemURL || product.imagens?.find(item => item.link)?.link || product.imagens?.find(item => item.url)?.url || product.imagemMiniatura; return { name: product.nome || product.descricao || product.descricaoCurta || 'Produto Bling', brand: product.categoria?.nome || 'Bling', price: formatBlingPrice(product.preco), image }; }
 const redirectUrl = 'https://capitaosuplementos.com.br/api/bling/callback';
 async function readJson(response: Response) { const text = await response.text(); let data: any = {}; try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || `HTTP ${response.status}` }; } if (!response.ok) throw new Error(data.error || `Erro HTTP ${response.status}`); return data; }
 export default function Admin() {
