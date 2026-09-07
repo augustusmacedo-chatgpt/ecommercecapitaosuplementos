@@ -1,5 +1,7 @@
 import { STATE_COOKIE, cookie, json } from '../../src/server/bling-shared.js';
-import { loadStoredData } from '../../src/server/bling-store.js';
+import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+
+const STATE_TTL_MS = 10 * 60 * 1000;
 
 export async function GET(request: Request) {
   if (request.method !== 'GET') return json({ error: 'Método não permitido.' }, 405);
@@ -11,6 +13,12 @@ export async function GET(request: Request) {
     }
 
     const state = crypto.randomUUID().replaceAll('-', '');
+    await saveStoredData({
+      ...config,
+      oauthState: state,
+      oauthStateExpiresAt: Date.now() + STATE_TTL_MS,
+    });
+
     const authorizeUrl = new URL('https://www.bling.com.br/Api/v3/oauth/authorize');
     authorizeUrl.searchParams.set('response_type', 'code');
     authorizeUrl.searchParams.set('client_id', config.clientId);
@@ -20,7 +28,7 @@ export async function GET(request: Request) {
       status: 302,
       headers: {
         Location: authorizeUrl.toString(),
-        'Set-Cookie': cookie(STATE_COOKIE, state, { maxAge: 600 }),
+        'Set-Cookie': cookie(STATE_COOKIE, state, { maxAge: STATE_TTL_MS / 1000 }),
         'Cache-Control': 'no-store',
       },
     });
