@@ -156,7 +156,7 @@ export default function Pdv() {
       if (!tokens.length) return true;
       const haystack = normalize([product.name, product.code || '', product.ean || ''].join(' '));
       return tokens.every(token => haystack.includes(token));
-    }).sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), 'pt-BR', { numeric: true, sensitivity: 'base' }).slice(0, 30);
+    }).sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), 'pt-BR', { numeric: true, sensitivity: 'base' })).slice(0, 30);
   }, [products, otherStoreQuery]);
 
   const activePayment = payments.find(p => p.id === selectedPayment);
