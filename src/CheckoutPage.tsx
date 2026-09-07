@@ -4,7 +4,7 @@ import { ArrowLeft, Check, ChevronDown, ChevronRight, MapPin, ShieldCheck, Shopp
 type CartItem = { id: number; name: string; price: string; image?: string; stock?: number; code?: string };
 type PaymentMethod = 'CRÉDITO 1X' | 'CRÉDITO 2X' | 'CRÉDITO 3X' | 'DÉBITO À VISTA' | 'PIX PAGAR NA MÁQUINA DE CARTÃO' | 'DINHEIRO';
 
-const SESSION_KEY = 'capitao-verified-document';
+const SESSION_KEY = 'capitao-customer-session';
 const EMAIL_KEY = 'capitao-verified-email';
 const SESSION_TIME_KEY = 'capitao-verified-at';
 const CHECKOUT_ID_KEY = 'capitao-checkout-id';
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!hasValidCheckoutSession()) { location.href = '/reconnect'; return; }
     try { setCart(JSON.parse(localStorage.getItem('capitao-cart') || '[]')); } catch { setCart([]); }
-    setCustomer(current => ({ ...current, document: verifiedDocument ? maskDocument(verifiedDocument) : '', email: verifiedEmail }));
+    setCustomer(current => ({ ...current, email: verifiedEmail }));
     try {
       const last = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || 'null') as { checkoutId?: string; orderNumber?: number } | null;
       if (last?.checkoutId === checkoutId && last.orderNumber) { setSubmitted(true); setOrderNumber(last.orderNumber); }
@@ -96,11 +96,10 @@ export default function CheckoutPage() {
     if (submitting) return;
     setFormError('');
     const required: Array<[keyof Customer, string]> = [
-      ['document', 'CPF/CNPJ'], ['name', 'Nome completo'], ['birthDate', 'Data de nascimento'], ['email', 'E-mail'], ['phone', 'Telefone / WhatsApp'], ['zip', 'CEP'], ['street', 'Logradouro'], ['number', 'Número'], ['district', 'Bairro']
+      ['name', 'Nome completo'], ['email', 'E-mail'], ['phone', 'Telefone / WhatsApp'], ['zip', 'CEP'], ['street', 'Logradouro'], ['number', 'Número'], ['district', 'Bairro']
     ];
     const missing = required.find(([key]) => !String(customer[key]).trim());
     if (missing) { setFormError(`Preencha o campo obrigatório: ${missing[1]}.`); return; }
-    if (![11, 14].includes(customer.document.replace(/\D/g, '').length)) { setFormError('Informe um CPF ou CNPJ válido.'); return; }
     if (!customer.city || !customer.state) { setFormError('Consulte um CEP válido para preencher cidade e estado.'); return; }
     if (!customer.email.includes('@')) { setFormError('Informe um e-mail válido.'); return; }
     if (!cart.length) { setFormError('Sua sacola está vazia.'); return; }
@@ -165,9 +164,8 @@ export default function CheckoutPage() {
           <div className="payment-security-banner"><div className="payment-security-icon"><ShieldCheck size={19}/></div><div><strong>NENHUM PAGAMENTO SERÁ EFETUADO AGORA</strong><p>Seu pedido será apenas registrado neste momento. O pagamento acontece somente no momento da entrega.</p></div></div>
           <div className="checkout-card"><div className="card-title"><UserRound size={19}/><div><h2>{isNewCustomer ? 'Complete seu cadastro' : 'Seus dados'}</h2><p>{isNewCustomer ? 'Precisamos destes dados para registrar seu cadastro e realizar a entrega.' : 'Precisamos deles para realizar a entrega.'}</p></div></div>
             <div className="checkout-grid">
-              <label>CPF/CNPJ <em>OBRIGATÓRIO</em><input value={customer.document} onChange={e=>!verifiedDocument&&update('document',maskDocument(e.target.value))} placeholder="Digite seu CPF/CNPJ" readOnly={Boolean(verifiedDocument)} required/></label>
               <label>Nome completo <em>OBRIGATÓRIO</em><input value={customer.name} onChange={e=>update('name',e.target.value)} placeholder="Digite seu nome" required/></label>
-              <label>Data de nascimento <em>OBRIGATÓRIO</em><input type="date" value={customer.birthDate} onChange={e=>update('birthDate',e.target.value)} required/></label>
+              <label>Data de nascimento<input type="date" value={customer.birthDate} onChange={e=>update('birthDate',e.target.value)}/></label>
               <label>E-mail <em>OBRIGATÓRIO</em><input type="email" value={customer.email} onChange={e=>!verifiedEmail&&update('email',e.target.value)} placeholder="seu@email.com" readOnly={Boolean(verifiedEmail)} required/></label>
               <label>Telefone / WhatsApp <em>OBRIGATÓRIO</em><input value={customer.phone} onChange={e=>update('phone',maskPhone(e.target.value))} placeholder="(92) 99999-9999" required/></label>
             </div>
