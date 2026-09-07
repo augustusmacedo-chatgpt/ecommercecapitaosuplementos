@@ -2,6 +2,7 @@ import { createHash, createHmac, randomInt } from 'node:crypto';
 import { get, put } from '../../src/server/storage.js';
 import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
+import { accountStorageKey } from '../../src/server/pontos.js';
 import { isValidEmail, normalizeEmail } from '../../src/server/customer-identity.js';
 import { findCustomersByName, loadCustomerByEmail, loadCustomerByPhone, loadCustomerById, normalizePhone, publicCustomer, saveCustomer, CustomerRecord } from '../../src/server/customer-store.js';
 
@@ -85,12 +86,20 @@ async function verifyCode(request: Request) {
     if (!result?.stream) return json({ error: 'Código expirado. Solicite um novo código.' }, 401);
     const saved = JSON.parse(await new Response(result.stream).text()) as { code: string; expires: number; email: string };
     if (Date.now() > saved.expires || String(body.code) !== saved.code) return json({ error: 'Código inválido ou expirado.' }, 401);
+    await put(otpKey(email), JSON.stringify({ ...saved, code: '', expires: 0, usedAt: Date.now() }), { contentType: 'application/json' });
 
     let customer = await loadCustomerByEmail(email);
     if (!customer) return json({ verified: true, existingCustomer: false, email }, 200);
 
     // Migra cadastros antigos para a nova base no primeiro acesso válido.
     customer = await saveCustomer({ ...customer, id: customer.id || crypto.randomUUID(), email, emailVerified: true });
+    // Migra pontos antigos vinculados ao e-mail para o novo cliente_id no primeiro acesso válido.
+    const legacyPoints = await get(accountStorageKey(\`email:\${email}\`));
+    const currentPoints = await get(accountStorageKey(customer.id));
+    if (legacyPoints?.stream && !currentPoints?.stream) {
+      const legacyData = JSON.parse(await new Response(legacyPoints.stream).text());
+      await put(accountStorageKey(customer.id), JSON.stringify({ ...legacyData, customerKey: customer.id, email }), { contentType: 'application/json' });
+    }
     const sessionToken = createSessionToken(customer.id);
     if (!sessionToken) return json({ error: 'Sessão segura indisponível.' }, 503);
     return json({ verified: true, existingCustomer: true, email, customerId: customer.id, sessionToken, customer: publicCustomer(customer) });
