@@ -5,6 +5,40 @@ type TrackedItem = { product: Product; quantity: number };
 type Seller = { id: number; name: string };
 
 const KEY = 'capitao-pdv-sale-guard';
+const OFFLINE_QUEUE_KEY = 'capitao-pdv-offline-sales-v1';
+const OFFLINE_MAX_AGE = 1000 * 60 * 60 * 24;
+type OfflineSale = { checkoutId: string; payload: any; createdAt: number };
+function readOfflineQueue(): OfflineSale[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+    const now = Date.now();
+    return Array.isArray(value) ? value.filter((entry: any) => entry?.checkoutId && entry?.payload && now - Number(entry.createdAt || 0) <= OFFLINE_MAX_AGE) : [];
+  } catch { return []; }
+}
+function writeOfflineQueue(queue: OfflineSale[]) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue.slice(-100))); } catch {}
+}
+function queueOfflineSale(entry: OfflineSale) {
+  const queue = readOfflineQueue();
+  if (!queue.some(item => item.checkoutId === entry.checkoutId)) queue.push(entry);
+  writeOfflineQueue(queue);
+}
+async function flushOfflineSales(fetcher: typeof fetch) {
+  if (!navigator.onLine) return { sent: 0, pending: readOfflineQueue().length };
+  const queue = readOfflineQueue();
+  if (!queue.length) return { sent: 0, pending: 0 };
+  const pending: OfflineSale[] = [];
+  let sent = 0;
+  for (const entry of queue) {
+    try {
+      const response = await fetcher('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry.payload) });
+      if (!response.ok) { pending.push(entry); continue; }
+      sent += 1;
+    } catch { pending.push(entry); break; }
+  }
+  writeOfflineQueue(pending);
+  return { sent, pending: pending.length };
+}
 
 function clean(value: string) { return value.trim(); }
 function normalize(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
@@ -37,6 +71,10 @@ export default function PdvRealSaleEnhancer() {
       } catch (error) { console.warn('PDV: vendedores do Bling indisponíveis.', error); }
     };
     void loadSellers();
+    const syncOfflineSales = () => { void flushOfflineSales(originalFetch).catch(() => {}); };
+    syncOfflineSales();
+    window.addEventListener('online', syncOfflineSales);
+    const offlineSyncTimer = window.setInterval(syncOfflineSales, 30000);
 
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
@@ -105,12 +143,25 @@ export default function PdvRealSaleEnhancer() {
       const items = readCartFromDom(), payment = readPayment(), customer = readCustomer(), choice = readDocumentChoice(), seller = readSeller();
       if (!items.length || !payment || !choice || !seller.id) { submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash(!seller.id ? 'O vendedor do Bling ainda não foi carregado. Aguarde e tente novamente.' : 'Complete produtos, pagamento e documento antes de finalizar.', true); return; }
       const checkoutId = `PDV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const payload = { checkoutId, location: readLocation(), sellerId: seller.id, sellerName: seller.name, customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) };
       try {
-        const response = await originalFetch('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkoutId, location: readLocation(), sellerId: seller.id, sellerName: seller.name, customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) }) });
+        if (!navigator.onLine) throw new TypeError('OFFLINE');
+        const response = await originalFetch('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Não foi possível registrar a venda no Bling.');
         sessionStorage.setItem(KEY, JSON.stringify({ checkoutId, orderId: data.orderId, orderNumber: data.orderNumber, location: data.location, sellerId: seller.id, createdAt: new Date().toISOString() }));
         flash(`Venda registrada no Bling${data.orderNumber ? ` • Pedido ${data.orderNumber}` : ''}.`); setButtonState(button, 'VENDA REGISTRADA', true); window.setTimeout(() => globalThis.location.reload(), 1100);
-      } catch (error) { submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash(error instanceof Error ? error.message : 'Não foi possível registrar a venda.', true); }
+      } catch (error) {
+        const networkFailure = !navigator.onLine || error instanceof TypeError || String(error).includes('OFFLINE');
+        if (networkFailure) {
+          queueOfflineSale({ checkoutId, payload, createdAt: Date.now() });
+          sessionStorage.setItem(KEY, JSON.stringify({ checkoutId, location: payload.location, sellerId: seller.id, createdAt: new Date().toISOString(), pendingSync: true }));
+          flash('Sem internet: venda guardada com segurança neste caixa. Ela será sincronizada automaticamente quando a conexão voltar.');
+          setButtonState(button, 'VENDA SALVA OFFLINE', true);
+          window.setTimeout(() => globalThis.location.reload(), 1100);
+          return;
+        }
+        submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash(error instanceof Error ? error.message : 'Não foi possível registrar a venda.', true);
+      }
     };
 
     const onClick = (event: MouseEvent) => {
@@ -126,7 +177,7 @@ export default function PdvRealSaleEnhancer() {
     };
 
     globalThis.document.addEventListener('click', onClick, true);
-    return () => { globalThis.document.removeEventListener('click', onClick, true); window.fetch = originalFetch; };
+    return () => { globalThis.document.removeEventListener('click', onClick, true); window.removeEventListener('online', syncOfflineSales); window.clearInterval(offlineSyncTimer); window.fetch = originalFetch; };
   }, []);
   return null;
 }
