@@ -4,7 +4,7 @@ import { ArrowLeft, Check, ChevronDown, ChevronRight, MapPin, ShieldCheck, Shopp
 type CartItem = { id: number; name: string; price: string; image?: string; stock?: number; code?: string };
 type PaymentMethod = 'CRÉDITO 1X' | 'CRÉDITO 2X' | 'CRÉDITO 3X' | 'DÉBITO À VISTA' | 'PIX PAGAR NA MÁQUINA DE CARTÃO' | 'DINHEIRO';
 
-const SESSION_KEY = 'capitao-verified-document';
+const SESSION_KEY = 'capitao-customer-session';
 const EMAIL_KEY = 'capitao-verified-email';
 const SESSION_TIME_KEY = 'capitao-verified-at';
 const CHECKOUT_ID_KEY = 'capitao-checkout-id';
@@ -12,10 +12,10 @@ const LAST_ORDER_KEY = 'capitao-last-order';
 const SESSION_TTL = 15 * 60 * 1000;
 
 export function hasValidCheckoutSession() {
-  const document = localStorage.getItem(SESSION_KEY);
+  const session = localStorage.getItem(SESSION_KEY);
   const email = localStorage.getItem(EMAIL_KEY);
   const verifiedAt = Number(localStorage.getItem(SESSION_TIME_KEY) || 0);
-  return Boolean((document || email) && verifiedAt && Date.now() - verifiedAt < SESSION_TTL);
+  return Boolean((session || email) && verifiedAt && Date.now() - verifiedAt < SESSION_TTL);
 }
 
 function price(value: string) {
@@ -24,11 +24,6 @@ function price(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 function money(value: number) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-function maskDocument(value: string) {
-  const d = value.replace(/\D/g, '');
-  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-  return d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-}
 function maskPhone(value: string) {
   const d = value.replace(/\D/g, '').slice(0, 11);
   if (d.length <= 2) return d.length ? `(${d}` : '';
@@ -41,7 +36,7 @@ function maskCep(value: string) {
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = ['CRÉDITO 1X', 'CRÉDITO 2X', 'CRÉDITO 3X', 'DÉBITO À VISTA', 'PIX PAGAR NA MÁQUINA DE CARTÃO', 'DINHEIRO'];
-type Customer = { document: string; name: string; birthDate: string; email: string; phone: string; zip: string; street: string; number: string; complement: string; district: string; city: string; state: string; observation: string };
+type Customer = { name: string; birthDate: string; email: string; phone: string; zip: string; street: string; number: string; complement: string; district: string; city: string; state: string; observation: string };
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -52,7 +47,7 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
   const [formError, setFormError] = useState('');
-  const [customer, setCustomer] = useState<Customer>({ document: '', name: '', birthDate: '', email: '', phone: '', zip: '', street: '', number: '', complement: '', district: '', city: 'Manaus', state: 'AM', observation: '' });
+  const [customer, setCustomer] = useState<Customer>({ name: '', birthDate: '', email: '', phone: '', zip: '', street: '', number: '', complement: '', district: '', city: 'Manaus', state: 'AM', observation: '' });
   const [checkoutId] = useState(() => {
     const existing = sessionStorage.getItem(CHECKOUT_ID_KEY);
     if (existing) return existing;
@@ -61,19 +56,19 @@ export default function CheckoutPage() {
     return created;
   });
 
-  const verifiedDocument = localStorage.getItem(SESSION_KEY) || '';
+  const verifiedSession = localStorage.getItem(SESSION_KEY) || '';
   const verifiedEmail = localStorage.getItem(EMAIL_KEY) || '';
-  const isNewCustomer = !verifiedDocument && Boolean(verifiedEmail);
+  const isNewCustomer = Boolean(verifiedEmail);
 
   useEffect(() => {
     if (!hasValidCheckoutSession()) { location.href = '/reconnect'; return; }
     try { setCart(JSON.parse(localStorage.getItem('capitao-cart') || '[]')); } catch { setCart([]); }
-    setCustomer(current => ({ ...current, document: verifiedDocument ? maskDocument(verifiedDocument) : '', email: verifiedEmail }));
+    setCustomer(current => ({ ...current, email: verifiedEmail }));
     try {
       const last = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || 'null') as { checkoutId?: string; orderNumber?: number } | null;
       if (last?.checkoutId === checkoutId && last.orderNumber) { setSubmitted(true); setOrderNumber(last.orderNumber); }
     } catch { /* sem pedido anterior nesta sessão */ }
-  }, [checkoutId, verifiedDocument, verifiedEmail]);
+  }, [checkoutId, verifiedSession, verifiedEmail]);
 
   async function lookupCep(value: string) {
     const cep = value.replace(/\D/g, '');
@@ -96,24 +91,33 @@ export default function CheckoutPage() {
     if (submitting) return;
     setFormError('');
     const required: Array<[keyof Customer, string]> = [
-      ['document', 'CPF/CNPJ'], ['name', 'Nome completo'], ['birthDate', 'Data de nascimento'], ['email', 'E-mail'], ['phone', 'Telefone / WhatsApp'], ['zip', 'CEP'], ['street', 'Logradouro'], ['number', 'Número'], ['district', 'Bairro']
+      ['name', 'Nome completo'], ['email', 'E-mail'], ['phone', 'Telefone / WhatsApp'], ['zip', 'CEP'], ['street', 'Logradouro'], ['number', 'Número'], ['district', 'Bairro']
     ];
     const missing = required.find(([key]) => !String(customer[key]).trim());
     if (missing) { setFormError(`Preencha o campo obrigatório: ${missing[1]}.`); return; }
-    if (![11, 14].includes(customer.document.replace(/\D/g, '').length)) { setFormError('Informe um CPF ou CNPJ válido.'); return; }
     if (!customer.city || !customer.state) { setFormError('Consulte um CEP válido para preencher cidade e estado.'); return; }
     if (!customer.email.includes('@')) { setFormError('Informe um e-mail válido.'); return; }
     if (!cart.length) { setFormError('Sua sacola está vazia.'); return; }
 
     setSubmitting(true);
     try {
+      let orderSession = verifiedSession;
+      if (!orderSession) {
+        const registration = await fetch('/api/customers/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: customer.name, phone: customer.phone, email: customer.email }) });
+        const registrationData = await registration.json().catch(() => ({}));
+        if (!registration.ok || !registrationData.created || !registrationData.sessionToken) throw new Error(registrationData.error || 'Não foi possível concluir seu cadastro.');
+        orderSession = registrationData.sessionToken;
+        localStorage.setItem('capitao-customer-session', orderSession);
+        localStorage.setItem('capitao-customer-id', registrationData.customerId || '');
+        localStorage.setItem('capitao-verified-email', customer.email.trim().toLowerCase());
+        localStorage.setItem('capitao-verified-at', String(Date.now()));
+      }
       const response = await fetch('/api/bling/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${orderSession}` },
         body: JSON.stringify({
           checkoutId,
           customer: {
-            document: customer.document,
             name: customer.name,
             birthDate: customer.birthDate,
             email: customer.email,
@@ -165,9 +169,8 @@ export default function CheckoutPage() {
           <div className="payment-security-banner"><div className="payment-security-icon"><ShieldCheck size={19}/></div><div><strong>NENHUM PAGAMENTO SERÁ EFETUADO AGORA</strong><p>Seu pedido será apenas registrado neste momento. O pagamento acontece somente no momento da entrega.</p></div></div>
           <div className="checkout-card"><div className="card-title"><UserRound size={19}/><div><h2>{isNewCustomer ? 'Complete seu cadastro' : 'Seus dados'}</h2><p>{isNewCustomer ? 'Precisamos destes dados para registrar seu cadastro e realizar a entrega.' : 'Precisamos deles para realizar a entrega.'}</p></div></div>
             <div className="checkout-grid">
-              <label>CPF/CNPJ <em>OBRIGATÓRIO</em><input value={customer.document} onChange={e=>!verifiedDocument&&update('document',maskDocument(e.target.value))} placeholder="Digite seu CPF/CNPJ" readOnly={Boolean(verifiedDocument)} required/></label>
               <label>Nome completo <em>OBRIGATÓRIO</em><input value={customer.name} onChange={e=>update('name',e.target.value)} placeholder="Digite seu nome" required/></label>
-              <label>Data de nascimento <em>OBRIGATÓRIO</em><input type="date" value={customer.birthDate} onChange={e=>update('birthDate',e.target.value)} required/></label>
+              <label>Data de nascimento<input type="date" value={customer.birthDate} onChange={e=>update('birthDate',e.target.value)}/></label>
               <label>E-mail <em>OBRIGATÓRIO</em><input type="email" value={customer.email} onChange={e=>!verifiedEmail&&update('email',e.target.value)} placeholder="seu@email.com" readOnly={Boolean(verifiedEmail)} required/></label>
               <label>Telefone / WhatsApp <em>OBRIGATÓRIO</em><input value={customer.phone} onChange={e=>update('phone',maskPhone(e.target.value))} placeholder="(92) 99999-9999" required/></label>
             </div>
