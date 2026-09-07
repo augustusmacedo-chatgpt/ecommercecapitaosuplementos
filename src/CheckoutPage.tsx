@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, MapPin, ShieldCheck, ShoppingBag, UserRound } from 'lucide-react';
 
-type CartItem = { id: number; name: string; price: string; image?: string; stock?: number; code?: string };
+type CartItem = { id: number; name: string; price: string; image?: string; stock?: number; code?: string; quantity?: number; product?: CartItem };
 type PaymentMethod = 'CRÉDITO 1X' | 'CRÉDITO 2X' | 'CRÉDITO 3X' | 'DÉBITO À VISTA' | 'PIX PAGAR NA MÁQUINA DE CARTÃO' | 'DINHEIRO';
 
 const SESSION_KEY = 'capitao-customer-session';
@@ -65,7 +65,15 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!hasValidCheckoutSession()) { location.href = '/reconnect'; return; }
-    try { setCart(JSON.parse(localStorage.getItem('capitao-cart') || '[]')); } catch { setCart([]); }
+    try {
+      const saved = JSON.parse(localStorage.getItem('capitao-cart') || '[]');
+      const normalized = Array.isArray(saved) ? saved.flatMap((entry: any) => {
+        const item = entry?.product || entry;
+        const quantity = Math.max(1, Math.floor(Number(entry?.quantity || item?.quantity || 1)));
+        return item?.id ? [{ ...item, quantity }] : [];
+      }) : [];
+      setCart(normalized);
+    } catch { setCart([]); }
     setCustomer(current => ({ ...current, email: verifiedEmail }));
     try {
       const last = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || 'null') as { checkoutId?: string; orderNumber?: number } | null;
@@ -200,10 +208,15 @@ export default function CheckoutPage() {
 
   const grouped = useMemo(() => {
     const map = new Map<number, CartItem & { quantity: number }>();
-    cart.forEach(item => { const current = map.get(item.id); if (current) current.quantity += 1; else map.set(item.id, { ...item, quantity: 1 }); });
+    cart.forEach(item => {
+      const quantity = Math.max(1, Math.floor(Number(item.quantity || 1)));
+      const current = map.get(item.id);
+      if (current) current.quantity += quantity;
+      else map.set(item.id, { ...item, quantity });
+    });
     return Array.from(map.values());
   }, [cart]);
-  const total = useMemo(() => cart.reduce((sum, item) => sum + price(item.price), 0), [cart]);
+  const total = useMemo(() => grouped.reduce((sum, item) => sum + price(item.price) * item.quantity, 0), [grouped]);
 
   if (!hasValidCheckoutSession()) return null;
   if (!cart.length && !submitted) return <main className="checkout-page"><style>{styles}</style><div className="checkout-top"><a href="/" className="checkout-logo"><img src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a></div><section className="checkout-empty"><ShoppingBag size={42}/><h1>Sua sacola está vazia</h1><p>Escolha seus produtos para continuar.</p><a href="/" className="checkout-primary">VOLTAR À LOJA</a></section></main>;
