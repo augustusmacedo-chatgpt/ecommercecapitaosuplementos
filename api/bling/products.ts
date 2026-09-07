@@ -93,6 +93,13 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const id = (url.searchParams.get('id') || '').trim();
+    const ids = Array.from(new Set(
+      (url.searchParams.get('ids') || '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(value => /^\d+$/.test(value))
+        .slice(0, 30)
+    ));
     const token = await getBlingAccessToken();
 
     if (id) {
@@ -100,6 +107,20 @@ export async function GET(request: Request) {
       const product = await getDetail(id, token);
       if (!product) return json({ error: 'Produto não encontrado no Bling.' }, 404);
       return json({ product }, 200, { 'Cache-Control': 'no-store' });
+    }
+
+    // Consulta detalhada sob demanda: a listagem do Bling não traz,
+    // necessariamente, os saldos separados por depósito. Para o PDV,
+    // buscamos apenas os produtos visíveis/consultados e retornamos os
+    // saldos reais de cada depósito sem carregar o catálogo inteiro novamente.
+    if (ids.length) {
+      const products: CatalogProduct[] = [];
+      for (let index = 0; index < ids.length; index += 1) {
+        if (index > 0) await sleep(90);
+        const product = await getDetail(ids[index], token);
+        if (product) products.push(product);
+      }
+      return json({ products, total: products.length, source: 'bling-detail' }, 200, { 'Cache-Control': 'no-store' });
     }
 
     const requestedPage = Math.max(1, Number(url.searchParams.get('pagina') || 1) || 1);
