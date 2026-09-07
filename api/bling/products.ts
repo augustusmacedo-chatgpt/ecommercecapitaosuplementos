@@ -38,7 +38,15 @@ async function getDetail(id: string, token: string): Promise<CatalogProduct | nu
 }
 
 async function fetchPage(page: number, limit: number, token: string) {
-  const response = await fetch(BLING_PRODUCTS_URL + '?pagina=' + page + '&limite=' + limit, { headers: authHeaders(token) });
+  // criterio=5 força a listagem completa (ativos, inativos e excluídos, conforme o catálogo do Bling)
+  // e tipo=T evita limitar a consulta a apenas um subtipo de produto.
+  const params = new URLSearchParams({
+    pagina: String(page),
+    limite: String(limit),
+    criterio: '5',
+    tipo: 'T',
+  });
+  const response = await fetch(BLING_PRODUCTS_URL + '?' + params.toString(), { headers: authHeaders(token) });
   if (!response.ok) {
     console.error('Bling products error:', response.status, await response.text());
     throw new Error(response.status === 401
@@ -104,12 +112,27 @@ export async function GET(request: Request) {
 
     if (all) {
       const maxPages = 50;
+      const seenIds = new Set<number>();
       for (page = 1; page <= maxPages; page += 1) {
         const batch = await fetchPage(page, limit, token);
-        products.push(...batch);
-        if (batch.length < limit) break;
+        const before = products.length;
+        for (const product of batch) {
+          const id = Number(product.id || 0);
+          if (id > 0 && seenIds.has(id)) continue;
+          if (id > 0) seenIds.add(id);
+          products.push(product);
+        }
+        if (batch.length < limit) {
+          complete = true;
+          break;
+        }
+        // Segurança contra uma API que repita a mesma página.
+        if (products.length === before) {
+          complete = false;
+          break;
+        }
+        complete = page < maxPages;
       }
-      complete = page <= maxPages;
       await enrichVisibleImages(products, token, Math.min(12, products.length));
       await writeLastGoodCatalog(products);
     } else {
