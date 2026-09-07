@@ -9,6 +9,7 @@ const EMAIL_KEY = 'capitao-verified-email';
 const SESSION_TIME_KEY = 'capitao-verified-at';
 const CHECKOUT_ID_KEY = 'capitao-checkout-id';
 const LAST_ORDER_KEY = 'capitao-last-order';
+const CHECKOUT_RETURN_KEY = 'capitao-checkout-return';
 const SESSION_TTL = 15 * 60 * 1000;
 
 export function hasValidCheckoutSession() {
@@ -199,7 +200,9 @@ export default function CheckoutPage() {
       setOrderNumber(number);
       setSubmitted(true);
       sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ checkoutId, orderNumber: number, orderId: data.orderId }));
+      // Pedido confirmado: a sacola precisa ficar vazia em todas as telas do app.
       localStorage.removeItem('capitao-cart');
+      window.dispatchEvent(new Event('capitao-cart-cleared'));
       setCart([]);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Não foi possível registrar o pedido.');
@@ -225,7 +228,7 @@ export default function CheckoutPage() {
     <header className="checkout-top"><a href="/" className="checkout-logo"><img src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a><div className="checkout-secure"><ShieldCheck size={17}/> COMPRA SEGURA</div></header>
     <div className="checkout-progress"><span className="done"><Check size={14}/> SACOLA</span><ChevronRight size={15}/><span className="done"><Check size={14}/> IDENTIFICAÇÃO</span><ChevronRight size={15}/><span className="active">FINALIZAÇÃO</span></div>
 
-    {submitted ? <section className="checkout-success"><div className="success-icon"><Check size={32}/></div><span className="checkout-eyebrow">PEDIDO REGISTRADO</span><h1>Pedido recebido pela Capitão.</h1>{orderNumber ? <p className="order-number">Pedido nº <strong>{orderNumber}</strong></p> : null}<p>Seu pedido foi registrado no Bling com os dados informados. A equipe da Capitão entrará em contato para confirmar a entrega e o pagamento.</p><a href="/" className="checkout-primary">CONTINUAR COMPRANDO</a></section> :
+    {submitted ? <section className="checkout-success"><div className="success-icon"><Check size={32}/></div><span className="checkout-eyebrow">PEDIDO REGISTRADO</span><h1>Pedido recebido pela Capitão.</h1>{orderNumber ? <p className="order-number">Pedido nº <strong>{orderNumber}</strong></p> : null}<p>Seu pedido foi registrado no Bling com os dados informados. A equipe da Capitão entrará em contato para confirmar a entrega e o pagamento.</p><div className="checkout-success-actions"><a href="/pedido" className="checkout-primary checkout-view-order">VER MEU PEDIDO</a><a href="/" className="checkout-primary checkout-secondary" onClick={()=>sessionStorage.removeItem(CHECKOUT_RETURN_KEY)}>CONTINUAR COMPRANDO</a></div></section> :
       <div className="checkout-layout">
         <section className="checkout-main">
           <div className="checkout-heading"><div><span className="checkout-eyebrow">ÚLTIMA ETAPA</span><h1>Finalize seu pedido</h1><p>{isNewCustomer ? 'Complete seu cadastro para continuar com a compra.' : 'Confira seus dados e escolha como prefere pagar no momento da entrega.'}</p></div><div className="verified"><ShieldCheck size={17}/> IDENTIDADE CONFIRMADA</div></div>
@@ -247,7 +250,7 @@ export default function CheckoutPage() {
             <div className="payment-delivery-note"><ShieldCheck size={16}/><span><strong>Pagamento na entrega.</strong> Nenhuma cobrança será realizada nesta página.</span></div>
           </div>
           {formError && <div className="checkout-form-error">{formError}</div>}
-          <button className="checkout-primary checkout-submit" onClick={confirmOrder} disabled={submitting}>{submitting ? 'REGISTRANDO PEDIDO...' : 'CONFIRMAR PEDIDO'} {!submitting && <ChevronRight size={18}/>}</button><a href="/" className="checkout-back"><ArrowLeft size={15}/> Voltar para a compra</a>
+          <button className="checkout-primary checkout-submit" onClick={confirmOrder} disabled={submitting}>{submitting ? 'REGISTRANDO PEDIDO...' : 'CONFIRMAR PEDIDO'} {!submitting && <ChevronRight size={18}/>}</button><button type="button" className="checkout-back" onClick={()=>{ const target=sessionStorage.getItem(CHECKOUT_RETURN_KEY); location.href=target||"/"; }}><ArrowLeft size={15}/> Voltar para a compra</button>
         </section>
         <aside className="checkout-summary"><div className="summary-sticky"><span className="checkout-eyebrow">RESUMO</span><h2>Seu pedido</h2>{grouped.map(item=><div className="summary-item" key={item.id}>{item.image?<img src={item.image} alt=""/>:<div className="summary-placeholder"/>}<div><strong>{item.name}</strong><span>Qtd. {item.quantity}</span></div><b>{money(price(item.price)*item.quantity)}</b></div>)}<div className="summary-line"><span>Subtotal</span><b>{money(total)}</b></div><div className="summary-line"><span>Entrega</span><b>A combinar</b></div><div className="summary-total"><span>Total</span><strong>{money(total)}</strong></div><div className="summary-payment"><span>Pagamento escolhido</span><strong>{payment}</strong><small>Será realizado somente na entrega.</small></div><div className="summary-note"><ShieldCheck size={16}/><span>Seus dados de identificação foram confirmados por código enviado ao seu e-mail.</span></div></div></aside>
       </div>}
