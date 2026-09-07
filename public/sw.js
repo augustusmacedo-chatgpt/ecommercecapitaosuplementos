@@ -1,5 +1,5 @@
-const CACHE_NAME = 'capitao-shell-v2';
-const APP_SHELL = ['/pdv', '/manifest.webmanifest', '/Logo_Capitao_Esportivo.png'];
+const CACHE_NAME = 'niegpt-pdv-shell-v3';
+const APP_SHELL = ['/pdv', '/manifest.webmanifest', '/pdv-niegpt-icon.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
