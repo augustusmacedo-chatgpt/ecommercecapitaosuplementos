@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PDV NIEGPT">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#181b20"/><stop offset="1" stop-color="#060708"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe08a"/><stop offset=".45" stop-color="#d99a20"/><stop offset="1" stop-color="#f7bd3e"/></linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff"/><stop offset=".45" stop-color="#cfd2d6"/><stop offset="1" stop-color="#72777d"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect x="10" y="10" width="492" height="492" rx="86" fill="url(#bg)" stroke="#343941" stroke-width="12"/>
+  <g fill="none" stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M96 150h46l30 136h176l32-112H178" stroke-width="20"/>
+    <path d="M66 180h48M52 218h58M40 256h70" stroke-width="13"/>
+    <circle cx="204" cy="338" r="18" fill="url(#gold)" stroke="none"/><circle cx="322" cy="338" r="18" fill="url(#gold)" stroke="none"/>
+  </g>
+  <text x="256" y="238" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="74" font-weight="900" fill="url(#gold)">CS</text>
+  <text x="256" y="410" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="102" font-weight="900" letter-spacing="-6" fill="url(#silver)">PDV</text>
+  <path d="M92 444h52M368 444h52" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+  <text x="256" y="461" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="29" font-weight="900" letter-spacing="7" fill="url(#gold)">NIEGPT</text>
+</svg>
