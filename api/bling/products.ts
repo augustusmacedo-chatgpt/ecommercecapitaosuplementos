@@ -122,7 +122,7 @@ export async function GET(request: Request) {
 
       const [stockResponse, depositsResponse] = await Promise.all([
         fetch('https://api.bling.com.br/Api/v3/estoques/saldos?' + stockParams.toString(), { headers: authHeaders(token) }),
-        fetch('https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100&situacao=1', { headers: authHeaders(token) }),
+        fetch('https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100', { headers: authHeaders(token) }),
       ]);
 
       const stockPayload = stockResponse.ok ? await stockResponse.json() as { data?: any[] } : { data: [] };
@@ -130,7 +130,7 @@ export async function GET(request: Request) {
 
       const depositNames = new Map<number, string>(
         (Array.isArray(depositsPayload.data) ? depositsPayload.data : [])
-          .map((deposit: any) => [Number(deposit?.id), String(deposit?.descricao || deposit?.nome || '').trim()] as [number, string])
+          .map((deposit: any) => [Number(deposit?.id), String(deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || '').trim()] as [number, string])
           .filter(([depositId, name]) => depositId > 0 && Boolean(name)),
       );
 
@@ -148,18 +148,23 @@ export async function GET(request: Request) {
         const stock = stockByProduct.get(Number(productId));
         const deposits = Array.isArray(stock?.depositos)
           ? stock.depositos.map((deposit: any) => {
-              const depositId = Number(deposit?.id ?? deposit?.deposito?.id);
-              const name = depositNames.get(depositId);
+              const depositId = Number(deposit?.id ?? deposit?.deposito?.id ?? deposit?.idDeposito);
+              const name = depositNames.get(depositId)
+                || deposit?.deposito?.nome
+                || deposit?.deposito?.descricao
+                || deposit?.nome
+                || deposit?.descricao
+                || undefined;
               const saldoVirtual = Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0);
               return {
                 id: depositId || undefined,
-                nome: name || deposit?.nome || undefined,
+                nome: name,
                 saldo: saldoVirtual,
                 quantidade: saldoVirtual,
                 saldoVirtual,
                 deposito: {
                   id: depositId || undefined,
-                  nome: name || deposit?.nome || undefined,
+                  nome: name,
                 },
               };
             })
