@@ -117,10 +117,55 @@ export default function App() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const [cart, setCart] = useState<SiteProduct[]>(() => { try { return JSON.parse(localStorage.getItem('capitao-cart') || '[]'); } catch { return []; } });
-  const addToCart = (product: SiteProduct, quantity: number) => { setCart(current => { const next = [...current, ...Array.from({ length: quantity }, () => product)]; localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; }); setCartOpen(true); };
-  const cartTotal = cart.reduce((sum, item) => { const value = Number(item.price.replace(/[^0-9,]/g, '').replace('.', '').replace(',', '.')); return sum + (Number.isFinite(value) ? value : 0); }, 0);
-  const removeFromCart = (id: number) => setCart(current => { const next = current.filter(item => item.id !== id); localStorage.setItem('capitao-cart', JSON.stringify(next)); return next; });
+  type CartLine = { product: SiteProduct; quantity: number };
+  const [cart, setCart] = useState<CartLine[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('capitao-cart') || '[]');
+      if (!Array.isArray(saved)) return [];
+      // Migrate the old array-of-products cart to quantity-based lines.
+      const lines = new Map<number, CartLine>();
+      saved.forEach((entry: any) => {
+        const product = entry?.product || entry;
+        const quantity = Math.max(1, Number(entry?.quantity || 1));
+        if (!product?.id) return;
+        const existing = lines.get(product.id);
+        lines.set(product.id, existing
+          ? { product: existing.product, quantity: existing.quantity + quantity }
+          : { product, quantity });
+      });
+      return Array.from(lines.values());
+    } catch { return []; }
+  });
+  const persistCart = (next: CartLine[]) => {
+    localStorage.setItem('capitao-cart', JSON.stringify(next));
+    return next;
+  };
+  const addToCart = (product: SiteProduct, quantity: number) => {
+    if (product.stock <= 0) return;
+    setCart(current => {
+      const existing = current.find(line => line.product.id === product.id);
+      const requested = Math.max(1, Number(quantity) || 1);
+      if (existing) {
+        const nextQuantity = Math.min(product.stock, existing.quantity + requested);
+        return persistCart(current.map(line => line.product.id === product.id ? { ...line, product, quantity: nextQuantity } : line));
+      }
+      return persistCart([...current, { product, quantity: Math.min(product.stock, requested) }]);
+    });
+    setCartOpen(true);
+  };
+  const updateCartQuantity = (id: number, quantity: number) => setCart(current => {
+    const next = current
+      .map(line => line.product.id === id ? { ...line, quantity: Math.min(line.product.stock, Math.max(0, Math.floor(quantity))) } : line)
+      .filter(line => line.quantity > 0);
+    return persistCart(next);
+  });
+  const removeFromCart = (id: number) => setCart(current => persistCart(current.filter(line => line.product.id !== id)));
+  const parsePrice = (price: string) => {
+    const value = Number(price.replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(value) ? value : 0;
+  };
+  const cartItemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
+  const cartTotal = cart.reduce((sum, line) => sum + parsePrice(line.product.price) * line.quantity, 0);
 
   useEffect(() => {
     let active = true;
@@ -152,7 +197,7 @@ export default function App() {
 
   return <div className="site-shell">
     <div className="announcement">ASSUMA O COMANDO <span>•</span> ENTREGA EXCLUSIVA EM MANAUS <span>•</span> PAGAMENTO NA ENTREGA</div>
-    <header className="header"><div className="header-main container"><a className="brand" href="#top" aria-label="Capitão Suplementos"><img className="logo-image" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a><div className="search-wrap"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por whey, creatina, pré..." aria-label="Buscar produtos" /></div><div className="header-actions"><a className="header-login" aria-label="Minha conta" href="/cadastro"><UserRound size={20} /><span>Login</span></a><button aria-label="Favoritos"><Heart size={20} /></button><button className="bag" aria-label="Sacola" onClick={() => setCartOpen(true)}><ShoppingBag size={20} /><b>{cart.length}</b></button></div></div><nav className="category-nav"><div className="container nav-inner"><a href="#produtos" onClick={() => chooseCategory('')}>TODOS OS PRODUTOS <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('whey')}>WHEY PROTEIN <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('creatina')}>CREATINA</a><a href="#produtos" onClick={() => chooseCategory('pré')}>PRÉ-TREINO</a><a href="#produtos">KITS PROMOCIONAIS</a><a href="#objetivos">OBJETIVOS <ChevronDown size={14} /></a></div></nav></header>
+    <header className="header"><div className="header-main container"><a className="brand" href="#top" aria-label="Capitão Suplementos"><img className="logo-image" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /></a><div className="search-wrap"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Busque por whey, creatina, pré..." aria-label="Buscar produtos" /></div><div className="header-actions"><a className="header-login" aria-label="Minha conta" href="/cadastro"><UserRound size={20} /><span>Login</span></a><button aria-label="Favoritos"><Heart size={20} /></button><button className="bag" aria-label="Sacola" onClick={() => setCartOpen(true)}><ShoppingBag size={20} /><b>{cartItemCount}</b></button></div></div><nav className="category-nav"><div className="container nav-inner"><a href="#produtos" onClick={() => chooseCategory('')}>TODOS OS PRODUTOS <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('whey')}>WHEY PROTEIN <ChevronDown size={14} /></a><a href="#produtos" onClick={() => chooseCategory('creatina')}>CREATINA</a><a href="#produtos" onClick={() => chooseCategory('pré')}>PRÉ-TREINO</a><a href="#produtos">KITS PROMOCIONAIS</a><a href="#objetivos">OBJETIVOS <ChevronDown size={14} /></a></div></nav></header>
     <main id="top">
       <section className="hero-banner container"><button className="carousel-arrow left" onClick={() => setSlide((slide + 2) % 3)} aria-label="Banner anterior"><ChevronLeft /></button><Placeholder label={`BANNER PRINCIPAL ${slide + 1}`} /><button className="carousel-arrow right" onClick={() => setSlide((slide + 1) % 3)} aria-label="Próximo banner"><ChevronRight /></button><div className="dots">{[0, 1, 2].map(index => <i className={index === slide ? 'active' : ''} key={index} />)}</div></section>
       <section className="section section-tinted" id="destaques"><div className="container"><SectionHeading eyebrow="O que está em evidência" title="🔥 DESTAQUES DA CAPITÃO" /><CatalogNotice loading={catalogLoading} error={catalogError} count={availableProducts.length} />{renderProducts()}</div></section>
@@ -163,7 +208,17 @@ export default function App() {
       <section className="section brands-section" id="marcas"><div className="container"><SectionHeading title="MARCAS" /><div className="brand-list">{['MARCA 01', 'MARCA 02', 'MARCA 03', 'MARCA 04', 'MARCA 05'].map(brand => <a href={`/marca/${brand.toLowerCase().replaceAll(' ', '-')}`} key={brand}>{brand}</a>)}</div></div></section>
       <section className="section section-tinted learning-section"><div className="container"><SectionHeading eyebrow="Conteúdo Capitão" title="📚 APRENDA COM A CAPITÃO" /><div className="learning-grid">{learning.map(item => <a href="#aprendizado" className="learning-card" key={item.title}><BookOpen size={21} /><h3>{item.title}</h3><p>{item.text}</p><span>Ler conteúdo <ArrowRight size={14} /></span></a>)}</div></div></section>
       <section className="section final-section"><div className="container final-grid"><a className="final-card dark" href="https://instagram.com/capitaosuplementosoficial"><InstagramIcon /><div><small>SIGA A CAPITÃO</small><strong>Instagram</strong><span>@capitaosuplementosoficial <ArrowRight size={15} /></span></div></a><a className="final-card gold" href="https://wa.me/5592985828394"><MessageCircle /><div><small>FALE COM A CAPITÃO</small><strong>WhatsApp</strong><span>(92) 98582-8394 <ArrowRight size={15} /></span></div></a><a className="final-card light" href="#beneficios"><span className="reward-symbol">R$</span><div><small>PROGRAMA DE FIDELIDADE</small><strong>Compre sempre, ganhe mais</strong><span>Conheça seus benefícios <ArrowRight size={15} /></span></div></a></div></section>
-    </main><aside className={`cart-drawer ${cartOpen ? "open" : ""}`} aria-label="Sacola de compras"><div className="cart-head"><h2>Sua sacola</h2><button onClick={() => setCartOpen(false)} aria-label="Fechar sacola"><X /></button></div>{cart.length ? <>{cart.map((item,index) => <div className="cart-item" key={`${item.id}-${index}`}><span>{item.name}</span><strong>{item.price}</strong><button onClick={() => removeFromCart(item.id)}>Remover</button></div>)}<div className="cart-summary"><span>Itens: {cart.length}</span><strong>{cartTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div><button className="cart-checkout" onClick={() => window.location.href='/cadastro'}>FINALIZAR VENDA</button></> : <p className="cart-empty">Sua sacola está vazia.</p>}</aside><button className="back-to-top" onClick={() => window.scrollTo({top:0,behavior:'smooth'})} aria-label="Voltar ao topo">↑</button><button className="benefits-float" aria-label="Benefícios, resgate aqui"><span>BENEFÍCIOS</span><strong>RESGATE<br />AQUI</strong></button><footer className="footer"><div className="container footer-grid"><div><div className="footer-logo">CAPITÃO<br /><span>SUPLEMENTOS</span></div><p>ASSUMA O COMANDO.</p></div><div><h4>ATENDIMENTO</h4><a href="https://wa.me/5592985828394">WhatsApp</a><a href="#horarios">Horários</a><a href="#manaus">Entrega em Manaus</a></div><div><h4>MINHA CONTA</h4><a href="#login">Login</a><a href="#pedidos">Meus pedidos</a><a href="#beneficios">Benefícios</a></div><div><h4>INSTITUCIONAL</h4><a href="#sobre">Sobre a Capitão</a><a href="#privacidade">Privacidade</a><a href="#termos">Termos e condições</a></div></div><div className="footer-bottom">© {new Date().getFullYear()} CAPITÃO SUPLEMENTOS · MANAUS/AM</div></footer>
+    </main><aside className={`cart-drawer ${cartOpen ? "open" : ""}`} aria-label="Sacola de compras">
+      <div className="cart-head"><h2>Sua sacola</h2><button onClick={() => setCartOpen(false)} aria-label="Fechar sacola"><X /></button></div>
+      {cart.length ? <>
+        <div className="cart-lines">{cart.map(line => <div className="cart-item" key={line.product.id}>
+          <div className="cart-item-main">{line.product.image && <img src={line.product.image} alt="" />}<div><span>{line.product.name}</span><small>{line.product.price} cada</small></div></div>
+          <div className="cart-item-actions"><div className="cart-quantity"><button onClick={() => updateCartQuantity(line.product.id, line.quantity - 1)} aria-label="Diminuir quantidade">−</button><strong>{line.quantity}</strong><button onClick={() => updateCartQuantity(line.product.id, line.quantity + 1)} disabled={line.quantity >= line.product.stock} aria-label="Aumentar quantidade">+</button></div><strong>{(parsePrice(line.product.price) * line.quantity).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><button className="cart-remove" onClick={() => removeFromCart(line.product.id)}>Remover</button></div>
+        </div>)}</div>
+        <div className="cart-summary"><span>Itens: {cartItemCount}</span><strong>{cartTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div>
+        <button className="cart-checkout" onClick={() => window.location.href='/cadastro'}>CONTINUAR PARA CHECKOUT</button>
+      </> : <p className="cart-empty">Sua sacola está vazia.</p>}
+    </aside><button className="back-to-top" onClick={() => window.scrollTo({top:0,behavior:'smooth'})} aria-label="Voltar ao topo">↑</button><button className="benefits-float" aria-label="Benefícios, resgate aqui"><span>BENEFÍCIOS</span><strong>RESGATE<br />AQUI</strong></button><footer className="footer"><div className="container footer-grid"><div><div className="footer-logo">CAPITÃO<br /><span>SUPLEMENTOS</span></div><p>ASSUMA O COMANDO.</p></div><div><h4>ATENDIMENTO</h4><a href="https://wa.me/5592985828394">WhatsApp</a><a href="#horarios">Horários</a><a href="#manaus">Entrega em Manaus</a></div><div><h4>MINHA CONTA</h4><a href="#login">Login</a><a href="#pedidos">Meus pedidos</a><a href="#beneficios">Benefícios</a></div><div><h4>INSTITUCIONAL</h4><a href="#sobre">Sobre a Capitão</a><a href="#privacidade">Privacidade</a><a href="#termos">Termos e condições</a></div></div><div className="footer-bottom">© {new Date().getFullYear()} CAPITÃO SUPLEMENTOS · MANAUS/AM</div></footer>
   </div>;
 }
 function CatalogNotice({ loading, error, count }: { loading: boolean; error: string; count: number }) { return <div className="catalog-notice" role="status">{loading ? 'Carregando catálogo real do Bling...' : error ? `Catálogo real indisponível: ${error}` : `${count} produto(s) disponível(is) para compra`}</div>; }
