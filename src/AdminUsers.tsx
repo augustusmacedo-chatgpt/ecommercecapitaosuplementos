@@ -15,6 +15,8 @@ async function api(resource: string, options: RequestInit = {}) {
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [sellersLoading, setSellersLoading] = useState(false);
+  const [sellersError, setSellersError] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,11 +25,32 @@ export default function AdminUsers() {
   const [message, setMessage] = useState('');
   const [needsBootstrap, setNeedsBootstrap] = useState(false);
 
+  async function loadSellers() {
+    setSellersLoading(true); setSellersError('');
+    try {
+      const response = await fetch('/api/bling/pdv-sale?resource=sellers', { cache: 'no-store' });
+      const sellerData = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(sellerData.error || 'Não foi possível carregar os vendedores do Bling.');
+      const list = Array.isArray(sellerData.sellers) ? sellerData.sellers : [];
+      const normalized = list
+        .map((seller: any) => ({ id: Number(seller.id), name: String(seller.name || '').trim() }))
+        .filter((seller: Seller) => seller.id > 0 && seller.name)
+        .sort((a: Seller, b: Seller) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+      setSellers(normalized);
+      if (!normalized.length) setSellersError('Nenhum vendedor foi retornado pelo Bling. Clique em Atualizar para tentar novamente.');
+    } catch (e) {
+      setSellers([]);
+      setSellersError(e instanceof Error ? e.message : 'Não foi possível carregar os vendedores do Bling.');
+    } finally {
+      setSellersLoading(false);
+    }
+  }
+
   async function load() {
     setLoading(true); setError('');
     try {
       const data = await api('users'); setUsers(data.users || []); setNeedsBootstrap(!(data.users || []).length);
-      const sellerData = await fetch('/api/bling/pdv-sale?resource=sellers', { cache: 'no-store' }).then(r => r.json()); setSellers(sellerData.sellers || []);
+      await loadSellers();
     } catch (e) {
       const text = e instanceof Error ? e.message : 'Não foi possível carregar usuários.';
       setError(text); setNeedsBootstrap(text.includes('Acesso administrativo') || text.includes('persistente'));
@@ -83,7 +106,14 @@ export default function AdminUsers() {
           <input type="email" placeholder="E-mail para recuperação" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           <input type="password" placeholder={editing ? 'Nova senha (opcional)' : 'Senha (mín. 8 caracteres)'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           {!needsBootstrap && <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value as 'ADMIN' | 'OPERATOR' })}><option value="OPERATOR">OPERADOR</option><option value="ADMIN">ADMINISTRADOR</option></select>}
-          {!needsBootstrap && <select value={form.blingSellerId} onChange={e => chooseSeller(e.target.value)}><option value="">Vincular vendedor do Bling</option>{sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}</select>}
+          {!needsBootstrap && <>
+            <select value={form.blingSellerId} onChange={e => chooseSeller(e.target.value)} disabled={sellersLoading}>
+              <option value="">{sellersLoading ? 'Carregando vendedores do Bling...' : 'Vincular vendedor do Bling'}</option>
+              {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
+            </select>
+            {sellersError && <small style={{ color: '#b45309', fontWeight: 700 }}>{sellersError}</small>}
+            {!sellersError && !sellersLoading && sellers.length > 0 && <small style={{ color: '#6b7280' }}>{sellers.length} vendedor(es) carregado(s) do Bling.</small>}
+          </>}
           <button className="admin-primary" onClick={save} disabled={saving}><Plus size={15} /> {saving ? 'Salvando...' : editing ? 'Salvar alterações' : needsBootstrap ? 'Criar administrador' : 'Cadastrar usuário'}</button>
         </div>
       </div>
