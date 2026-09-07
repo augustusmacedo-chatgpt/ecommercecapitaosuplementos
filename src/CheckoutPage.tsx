@@ -101,9 +101,20 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
+      let orderSession = verifiedSession;
+      if (!orderSession) {
+        const registration = await fetch('/api/customers/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: customer.name, phone: customer.phone, email: customer.email }) });
+        const registrationData = await registration.json().catch(() => ({}));
+        if (!registration.ok || !registrationData.created || !registrationData.sessionToken) throw new Error(registrationData.error || 'Não foi possível concluir seu cadastro.');
+        orderSession = registrationData.sessionToken;
+        localStorage.setItem('capitao-customer-session', orderSession);
+        localStorage.setItem('capitao-customer-id', registrationData.customerId || '');
+        localStorage.setItem('capitao-verified-email', customer.email.trim().toLowerCase());
+        localStorage.setItem('capitao-verified-at', String(Date.now()));
+      }
       const response = await fetch('/api/bling/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(verifiedSession ? { Authorization: `Bearer ${verifiedSession}` } : {}) },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${orderSession}` },
         body: JSON.stringify({
           checkoutId,
           customer: {
