@@ -141,7 +141,8 @@ async function register(request: Request) {
     let customer: CustomerRecord = { id: crypto.randomUUID(), name, phone, email, emailVerified: false, address, addresses: address ? [address] : [], createdAt: new Date().toISOString() };
     const blingContactId = await createBlingContact(customer);
     customer = await saveCustomer({ ...customer, blingContactId });
-    return json({ created: true, customerId: customer.id, blingContactId: customer.blingContactId, possibleDuplicates: possibleDuplicates.map(publicCustomer) }, 201);
+    const sessionToken = createSessionToken(customer.id);
+    return json({ created: true, customerId: customer.id, sessionToken, blingContactId: customer.blingContactId, possibleDuplicates: possibleDuplicates.map(publicCustomer) }, 201);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Erro ao cadastrar cliente.' }, 503);
   }
