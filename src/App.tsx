@@ -140,6 +140,11 @@ export default function App() {
     localStorage.setItem('capitao-cart', JSON.stringify(next));
     return next;
   };
+  useEffect(() => {
+    const clear = () => setCart([]);
+    window.addEventListener('capitao-cart-cleared', clear);
+    return () => window.removeEventListener('capitao-cart-cleared', clear);
+  }, []);
   const addToCart = (product: SiteProduct, quantity: number) => {
     if (product.stock <= 0) return;
     setCart(current => {
@@ -216,7 +221,7 @@ export default function App() {
           <div className="cart-item-actions"><div className="cart-quantity"><button onClick={() => updateCartQuantity(line.product.id, line.quantity - 1)} aria-label="Diminuir quantidade">−</button><strong>{line.quantity}</strong><button onClick={() => updateCartQuantity(line.product.id, line.quantity + 1)} disabled={line.quantity >= line.product.stock} aria-label="Aumentar quantidade">+</button></div><strong>{(parsePrice(line.product.price) * line.quantity).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><button className="cart-remove" onClick={() => removeFromCart(line.product.id)}>Remover</button></div>
         </div>)}</div>
         <div className="cart-summary"><span>Itens: {cartItemCount}</span><strong>{cartTotal.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong></div>
-        <button className="cart-checkout" onClick={() => window.location.href='/cadastro'}>CONTINUAR PARA CHECKOUT</button>
+        <button className="cart-checkout" onClick={() => { sessionStorage.setItem('capitao-checkout-return', location.pathname + location.search + location.hash); window.location.href='/cadastro'; }}>CONTINUAR PARA CHECKOUT</button>
       </> : <p className="cart-empty">Sua sacola está vazia.</p>}
     </aside><button className="back-to-top" onClick={() => window.scrollTo({top:0,behavior:'smooth'})} aria-label="Voltar ao topo">↑</button><button className="benefits-float" aria-label="Benefícios, resgate aqui"><span>BENEFÍCIOS</span><strong>RESGATE<br />AQUI</strong></button><footer className="footer"><div className="container footer-grid"><div><div className="footer-logo">CAPITÃO<br /><span>SUPLEMENTOS</span></div><p>ASSUMA O COMANDO.</p></div><div><h4>ATENDIMENTO</h4><a href="https://wa.me/5592985828394">WhatsApp</a><a href="#horarios">Horários</a><a href="#manaus">Entrega em Manaus</a></div><div><h4>MINHA CONTA</h4><a href="#login">Login</a><a href="#pedidos">Meus pedidos</a><a href="#beneficios">Benefícios</a></div><div><h4>INSTITUCIONAL</h4><a href="#sobre">Sobre a Capitão</a><a href="#privacidade">Privacidade</a><a href="#termos">Termos e condições</a></div></div><div className="footer-bottom">© {new Date().getFullYear()} CAPITÃO SUPLEMENTOS · MANAUS/AM</div></footer>
   </div>;
