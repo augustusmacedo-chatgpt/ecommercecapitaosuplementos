@@ -222,3 +222,20 @@ button { cursor: pointer; }
 .description-toggle { font-size:12px; }.recommendations { margin-top:42px; padding:28px 0 60px; }.recommendations h2 { text-transform:uppercase; font-size:22px; margin-bottom:20px; }.recommendation-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }.recommendation-card { display:flex; flex-direction:column; gap:8px; background:#fff; border:1px solid #ddd; padding:14px; color:inherit; }.recommendation-image { height:150px; display:grid; place-items:center; background:#f3f3f0; color:#a77b1d; font-size:12px; font-weight:800; }.recommendation-card span { color:#777; font-size:11px; }@media(max-width:680px){.recommendation-grid{grid-template-columns:repeat(2,1fr)}.recommendation-image{height:110px}}
 .product-thumbnails { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); display:flex; gap:8px; max-width:90%; overflow-x:auto; padding:3px; }.product-thumbnails button { position:static; flex:0 0 58px; width:58px; height:58px; padding:3px; border:1px solid #ddd; background:#fff; cursor:pointer; }.product-thumbnails button.active { border:2px solid #a77b1d; }.product-thumbnails img { width:100%; height:100%; object-fit:contain; }.product-detail-image { padding-bottom:82px; }
 .identity-page { min-height:70vh; display:grid; place-items:center; padding:50px 0; }.identity-card { width:min(460px,100%); text-align:center; background:#fff; border:1px solid #ddd; padding:34px; }.identity-card h1 { margin-top:0; }.identity-card p { color:#666; }.identity-card input { width:100%; box-sizing:border-box; padding:13px; border:1px solid #ccd0d4; margin:16px 0; font-size:16px; }.identity-card .auth-submit { width:100%; }
+
+
+/* BLOCO 4A — Sacola inteligente */
+.cart-lines { display:flex; flex-direction:column; gap:14px; }
+.cart-item { display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid #ececec; }
+.cart-item-main { display:flex; gap:10px; min-width:0; }
+.cart-item-main img { width:52px; height:52px; object-fit:contain; background:#f7f7f5; }
+.cart-item-main span { display:block; font-size:12px; font-weight:800; line-height:1.35; }
+.cart-item-main small { display:block; margin-top:4px; color:#777; font-size:10px; }
+.cart-item-actions { display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-size:12px; }
+.cart-quantity { display:flex; align-items:center; border:1px solid #ddd; }
+.cart-quantity button { width:26px; height:26px; border:0; background:#f7f7f5; font-weight:800; }
+.cart-quantity button:disabled { opacity:.4; cursor:not-allowed; }
+.cart-quantity strong { min-width:28px; text-align:center; font-size:12px; }
+.cart-remove { border:0; background:transparent; color:#9a2a20; font-size:10px; padding:0; }
+.cart-checkout { margin-top:8px; }
+@media(max-width:680px){.cart-item{gap:8px}.cart-item-main img{width:46px;height:46px}}
