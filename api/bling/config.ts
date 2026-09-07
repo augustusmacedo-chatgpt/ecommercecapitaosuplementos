@@ -14,6 +14,7 @@ export async function GET() {
     const data = await loadStoredData();
     return json(
       {
+        clientId: data?.clientId || '',
         configured: Boolean(data?.clientId && data?.clientSecret),
         secretConfigured: Boolean(data?.clientSecret),
         inviteLink: data?.inviteLink || '',
@@ -31,10 +32,19 @@ export async function POST(request: Request) {
   try {
     const body = await readJsonBody(request) as Partial<BlingConfig>;
     const current = await loadStoredData();
-    const clientId = String(body.clientId ?? current?.clientId ?? '').trim();
-    const clientSecret = String(body.clientSecret ?? current?.clientSecret ?? '').trim();
-    const inviteLink = String(body.inviteLink ?? current?.inviteLink ?? '').trim();
-    if (!clientId || !clientSecret) return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+
+    const requestedClientId = String(body.clientId ?? '').trim();
+    const requestedClientSecret = String(body.clientSecret ?? '').trim();
+    const requestedInviteLink = String(body.inviteLink ?? '').trim();
+
+    const clientId = requestedClientId || current?.clientId || '';
+    const clientSecret = requestedClientSecret || current?.clientSecret || '';
+    const inviteLink = requestedInviteLink || current?.inviteLink || '';
+
+    if (!clientId || !clientSecret) {
+      return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
+    }
+
     await saveStoredData({ ...current, clientId, clientSecret, inviteLink });
     return json({ ok: true, configured: true, secretConfigured: true });
   } catch (error) {
