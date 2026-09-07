@@ -114,13 +114,78 @@ export async function GET(request: Request) {
     // buscamos apenas os produtos visíveis/consultados e retornamos os
     // saldos reais de cada depósito sem carregar o catálogo inteiro novamente.
     if (ids.length) {
+      // A rota de detalhe do produto não é a fonte mais confiável para os
+      // saldos separados por depósito. O Bling disponibiliza os saldos reais
+      // em /estoques/saldos, inclusive com o saldo virtual por depósito.
+      const stockParams = new URLSearchParams();
+      ids.forEach(productId => stockParams.append('idsProdutos[]', productId));
+
+      const [stockResponse, depositsResponse] = await Promise.all([
+        fetch('https://api.bling.com.br/Api/v3/estoques/saldos?' + stockParams.toString(), { headers: authHeaders(token) }),
+        fetch('https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100&situacao=1', { headers: authHeaders(token) }),
+      ]);
+
+      const stockPayload = stockResponse.ok ? await stockResponse.json() as { data?: any[] } : { data: [] };
+      const depositsPayload = depositsResponse.ok ? await depositsResponse.json() as { data?: any[] } : { data: [] };
+
+      const depositNames = new Map<number, string>(
+        (Array.isArray(depositsPayload.data) ? depositsPayload.data : [])
+          .map((deposit: any) => [Number(deposit?.id), String(deposit?.descricao || deposit?.nome || '').trim()] as [number, string])
+          .filter(([depositId, name]) => depositId > 0 && Boolean(name)),
+      );
+
+      const stockByProduct = new Map<number, any>(
+        (Array.isArray(stockPayload.data) ? stockPayload.data : [])
+          .map((item: any) => [Number(item?.produto?.id ?? item?.idProduto ?? item?.id), item] as [number, any])
+          .filter(([productId]) => productId > 0),
+      );
+
       const products: CatalogProduct[] = [];
       for (let index = 0; index < ids.length; index += 1) {
         if (index > 0) await sleep(90);
         const product = await getDetail(ids[index], token);
-        if (product) products.push(product);
+        if (!product) continue;
+
+        const stock = stockByProduct.get(Number(ids[index]));
+        if (stock) {
+          const deposits = Array.isArray(stock?.depositos)
+            ? stock.depositos.map((deposit: any) => {
+                const depositId = Number(deposit?.id ?? deposit?.deposito?.id);
+                const name = depositNames.get(depositId);
+                const saldoVirtual = Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0);
+                const saldoFisico = Number(deposit?.saldoFisico ?? saldoVirtual);
+                return {
+                  id: depositId || undefined,
+                  nome: name || deposit?.nome || undefined,
+                  saldo: saldoVirtual,
+                  quantidade: saldoVirtual,
+                  saldoVirtual,
+                  deposito: {
+                    id: depositId || undefined,
+                    nome: name || deposit?.nome || undefined,
+                  },
+                  saldoFisico,
+                };
+              })
+            : [];
+
+          product.estoque = {
+            saldoVirtualTotal: Number(stock?.saldoVirtualTotal ?? stock?.saldoFisicoTotal ?? product.stock ?? 0),
+            depositos,
+          };
+          product.stock = product.estoque.saldoVirtualTotal;
+          product.available = product.active && product.stock > 0;
+        }
+
+        products.push(product);
       }
-      return json({ products, total: products.length, source: 'bling-detail' }, 200, { 'Cache-Control': 'no-store' });
+
+      return json({
+        products,
+        total: products.length,
+        source: stockResponse.ok ? 'bling-stock-detail' : 'bling-detail',
+        stockSource: stockResponse.ok ? 'estoques/saldos' : 'produto',
+      }, 200, { 'Cache-Control': 'no-store' });
     }
 
     const requestedPage = Math.max(1, Number(url.searchParams.get('pagina') || 1) || 1);
