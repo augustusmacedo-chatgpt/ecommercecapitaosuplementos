@@ -12,10 +12,10 @@ const LAST_ORDER_KEY = 'capitao-last-order';
 const SESSION_TTL = 15 * 60 * 1000;
 
 export function hasValidCheckoutSession() {
-  const document = localStorage.getItem(SESSION_KEY);
+  const session = localStorage.getItem(SESSION_KEY);
   const email = localStorage.getItem(EMAIL_KEY);
   const verifiedAt = Number(localStorage.getItem(SESSION_TIME_KEY) || 0);
-  return Boolean((document || email) && verifiedAt && Date.now() - verifiedAt < SESSION_TTL);
+  return Boolean((session || email) && verifiedAt && Date.now() - verifiedAt < SESSION_TTL);
 }
 
 function price(value: string) {
@@ -24,11 +24,6 @@ function price(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 function money(value: number) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-function maskDocument(value: string) {
-  const d = value.replace(/\D/g, '');
-  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-  return d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-}
 function maskPhone(value: string) {
   const d = value.replace(/\D/g, '').slice(0, 11);
   if (d.length <= 2) return d.length ? `(${d}` : '';
@@ -41,7 +36,7 @@ function maskCep(value: string) {
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = ['CRÉDITO 1X', 'CRÉDITO 2X', 'CRÉDITO 3X', 'DÉBITO À VISTA', 'PIX PAGAR NA MÁQUINA DE CARTÃO', 'DINHEIRO'];
-type Customer = { document: string; name: string; birthDate: string; email: string; phone: string; zip: string; street: string; number: string; complement: string; district: string; city: string; state: string; observation: string };
+type Customer = { name: string; birthDate: string; email: string; phone: string; zip: string; street: string; number: string; complement: string; district: string; city: string; state: string; observation: string };
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -52,7 +47,7 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState<number | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
   const [formError, setFormError] = useState('');
-  const [customer, setCustomer] = useState<Customer>({ document: '', name: '', birthDate: '', email: '', phone: '', zip: '', street: '', number: '', complement: '', district: '', city: 'Manaus', state: 'AM', observation: '' });
+  const [customer, setCustomer] = useState<Customer>({ name: '', birthDate: '', email: '', phone: '', zip: '', street: '', number: '', complement: '', district: '', city: 'Manaus', state: 'AM', observation: '' });
   const [checkoutId] = useState(() => {
     const existing = sessionStorage.getItem(CHECKOUT_ID_KEY);
     if (existing) return existing;
@@ -61,9 +56,9 @@ export default function CheckoutPage() {
     return created;
   });
 
-  const verifiedDocument = localStorage.getItem(SESSION_KEY) || '';
+  const verifiedSession = localStorage.getItem(SESSION_KEY) || '';
   const verifiedEmail = localStorage.getItem(EMAIL_KEY) || '';
-  const isNewCustomer = !verifiedDocument && Boolean(verifiedEmail);
+  const isNewCustomer = Boolean(verifiedEmail);
 
   useEffect(() => {
     if (!hasValidCheckoutSession()) { location.href = '/reconnect'; return; }
@@ -73,7 +68,7 @@ export default function CheckoutPage() {
       const last = JSON.parse(sessionStorage.getItem(LAST_ORDER_KEY) || 'null') as { checkoutId?: string; orderNumber?: number } | null;
       if (last?.checkoutId === checkoutId && last.orderNumber) { setSubmitted(true); setOrderNumber(last.orderNumber); }
     } catch { /* sem pedido anterior nesta sessão */ }
-  }, [checkoutId, verifiedDocument, verifiedEmail]);
+  }, [checkoutId, verifiedSession, verifiedEmail]);
 
   async function lookupCep(value: string) {
     const cep = value.replace(/\D/g, '');
@@ -108,11 +103,10 @@ export default function CheckoutPage() {
     try {
       const response = await fetch('/api/bling/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(verifiedSession ? { Authorization: `Bearer ${verifiedSession}` } : {}) },
         body: JSON.stringify({
           checkoutId,
           customer: {
-            document: customer.document,
             name: customer.name,
             birthDate: customer.birthDate,
             email: customer.email,
