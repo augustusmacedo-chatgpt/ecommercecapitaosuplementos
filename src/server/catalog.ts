@@ -28,6 +28,7 @@ export type CatalogProduct = {
   imagemMiniatura?: string;
   categoria: { nome: string };
   situacao: string;
+  estoque: { saldoVirtualTotal: number };
 };
 
 type Candidate = { url?: unknown; type: 'original' | 'thumbnail' };
@@ -129,6 +130,7 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
     imagemMiniatura: thumbnailImage,
     categoria: { nome: category },
     situacao: active ? 'A' : 'I',
+    estoque: { saldoVirtualTotal: stock },
   };
 }
 
