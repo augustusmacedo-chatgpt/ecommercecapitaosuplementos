@@ -29,7 +29,9 @@ type BlingApiProduct = {
   descricaoCurta?: string;
   preco?: number;
   imagemURL?: string;
-  imagens?: Array<{ link?: string; url?: string }>;
+  imagemOriginal?: string;
+  imagemMiniatura?: string;
+  imagens?: Array<{ link?: string; url?: string; tipo?: 'original' | 'thumbnail' }>;
   midia?: { imagens?: { internas?: Array<{ link?: string; linkMiniatura?: string }>; externas?: Array<{ link?: string }> } };
   categoria?: { nome?: string };
   estoque?: { saldoVirtualTotal?: number; depositos?: Array<{ saldo?: number; quantidade?: number }> };
@@ -50,7 +52,7 @@ function formatBlingPrice(value?: number) {
 }
 
 function toSiteProduct(product: BlingApiProduct, index: number): SiteProduct {
-  const image = product.imagemURL || product.imagens?.find(item => item.link || item.url)?.link || product.imagens?.find(item => item.url)?.url || product.midia?.imagens?.internas?.find(item => item.link)?.link;
+  const image = product.imagemOriginal || product.imagemURL || product.imagens?.find(item => item.tipo !== 'thumbnail' && (item.link || item.url))?.link || product.imagens?.find(item => item.tipo !== 'thumbnail' && item.url)?.url || product.imagemMiniatura;
   return {
     id: product.id ?? index + 1,
     name: product.nome || product.descricaoCurta || 'Produto Bling',
@@ -95,7 +97,7 @@ function ProductCard({ product, onAdd }: { product: SiteProduct; onAdd: (product
     <div className="product-media">
       <span className={`badge ${unavailable ? 'badge-muted' : ''}`}>{unavailable ? 'ESGOTADO' : product.badge}</span>
       <button className="favorite" aria-label={`Adicionar ${product.name} aos favoritos`}><Heart size={17} /></button>
-      {product.image ? <img className="product-image" src={product.image} alt={product.name} loading="lazy" /> : <Placeholder label="IMAGEM DO PRODUTO" />}
+      {product.image ? <img className="product-image" src={product.image} alt={product.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <Placeholder label="IMAGEM DO PRODUTO" />}
     </div>
     <div className="product-body">
       <div className="tag-row"><span>{product.category}</span>{product.tags.slice(0, 1).map(tag => <span key={tag}>{tag}</span>)}</div>
