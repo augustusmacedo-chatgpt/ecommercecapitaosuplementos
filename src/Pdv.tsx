@@ -129,6 +129,7 @@ export default function Pdv({ initialLocation = 'camapua', lockLocation = false 
         const mapped = mapCatalogProducts(data);
         if (!mapped.length) throw new Error('O catálogo retornou vazio; mantendo a última cópia segura.');
         if (!active) return;
+        hydratedStockIds.current.clear();
         setProducts(mapped);
         writeCatalogCache(mapped);
         setCatalogState('live');
