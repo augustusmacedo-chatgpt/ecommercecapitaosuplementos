@@ -56,7 +56,7 @@ function locationStock(raw: any, location: 'camapua' | 'newfit') {
     }
     // No Bling, a loja CAPITÃO SUPLEMENTOS CAMAPUÃ continua vinculada ao
     // depósito interno chamado ESTOQUE MATRIZ.
-    return name === 'estoque matriz' || name === 'capitao suplementos camapua' || name.includes('estoque matriz') || name.includes('camapua');
+    return name === 'matriz' || name === 'estoque matriz' || name === 'capitao suplementos camapua' || name.includes('matriz') || name.includes('camapua');
   });
 
   return matches.reduce((sum: number, item: any) => sum + Number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual ?? 0), 0);
