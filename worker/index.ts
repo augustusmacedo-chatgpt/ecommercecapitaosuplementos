@@ -13,7 +13,8 @@ import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '..
 
 type R2ObjectLike = { body: ReadableStream<Uint8Array> | null };
 type R2BucketLike = { get(key: string): Promise<R2ObjectLike | null>; put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>, options?: unknown): Promise<unknown> };
-type WorkerEnv = { APP_STORAGE?: R2BucketLike };
+type AssetsLike = { fetch(request: Request): Promise<Response> };
+type WorkerEnv = { APP_STORAGE?: R2BucketLike; ASSETS: AssetsLike };
 type ExecutionCtx = { waitUntil(promise: Promise<unknown>): void };
 type StorageGlobal = typeof globalThis & { __CAPITAO_R2__?: R2BucketLike };
 
@@ -36,4 +37,17 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   return Response.json({ error: 'API não encontrada.' }, { status: 404 });
 }
 
-export default { async fetch(request: Request, env: WorkerEnv, ctx: ExecutionCtx) { setStorage(env); if (new URL(request.url).pathname.startsWith('/api/')) return dispatch(request, ctx); return new Response(null, { status: 404 }); } };
+export default {
+  async fetch(request: Request, env: WorkerEnv, ctx: ExecutionCtx): Promise<Response> {
+    setStorage(env);
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith('/api/')) {
+      return dispatch(request, ctx);
+    }
+
+    // Site, /admin e demais rotas do React são sempre entregues pelos
+    // Static Assets do próprio Cloudflare Worker.
+    return env.ASSETS.fetch(request);
+  },
+};
