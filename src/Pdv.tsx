@@ -41,7 +41,16 @@ function locationStock(raw: any, location: 'camapua' | 'newfit') {
   if (!Array.isArray(deposits) || !deposits.length) return 0;
 
   const matches = deposits.filter((item: any) => {
-    const name = normalize(String(item?.deposito?.nome || item?.nome || item?.local?.nome || item?.name || ''));
+    const name = normalize(String(
+      item?.deposito?.nome ||
+      item?.deposito?.descricao ||
+      item?.nome ||
+      item?.descricao ||
+      item?.local?.nome ||
+      item?.local?.descricao ||
+      item?.name ||
+      ''
+    ));
     if (location === 'newfit') {
       return name === 'capitao suplementos newfit' || name === 'estoque newfit' || name.includes('newfit');
     }
