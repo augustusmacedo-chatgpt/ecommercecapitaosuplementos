@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ecommercecapitaosuplementos",
   "main": "./worker/index.ts",
-  "compatibility_date": "2026-09-05",
+  "compatibility_date": "2026-09-07",
   "assets": {
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
