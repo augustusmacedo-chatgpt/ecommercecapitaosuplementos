@@ -1,9 +1,30 @@
 import { json } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
 import { matchesCatalogQuery, normalizeCatalogProduct, type CatalogProduct } from '../../src/server/catalog.js';
+import { get, put, hasStorage } from '../../src/server/storage.js';
 
 const BLING_PRODUCTS_URL = 'https://api.bling.com.br/Api/v3/produtos';
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const CATALOG_CACHE_KEY = 'bling/catalog-last-good.json';
+
+async function readLastGoodCatalog(): Promise<{ products: CatalogProduct[]; savedAt?: string } | null> {
+  if (!hasStorage()) return null;
+  try {
+    const stored = await get(CATALOG_CACHE_KEY);
+    if (!stored?.stream) return null;
+    const payload = JSON.parse(await new Response(stored.stream).text());
+    if (!Array.isArray(payload?.products) || !payload.products.length) return null;
+    return { products: payload.products, savedAt: payload.savedAt };
+  } catch { return null; }
+}
+async function writeLastGoodCatalog(products: CatalogProduct[]) {
+  if (!hasStorage() || !products.length) return;
+  try {
+    await put(CATALOG_CACHE_KEY, JSON.stringify({ savedAt: new Date().toISOString(), products }), { contentType: 'application/json' });
+  } catch (error) {
+    console.warn('Não foi possível atualizar o catálogo seguro:', error);
+  }
+}
 
 function authHeaders(token: string) {
   return { Accept: '1.0', Authorization: 'Bearer ' + token, 'enable-jwt': '1' };
@@ -90,6 +111,7 @@ export async function GET(request: Request) {
       }
       complete = page <= maxPages;
       await enrichVisibleImages(products, token, Math.min(12, products.length));
+      await writeLastGoodCatalog(products);
     } else {
       products = await fetchPage(requestedPage, limit, token);
       await enrichVisibleImages(products, token, Math.min(12, products.length));
@@ -116,6 +138,31 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     console.error('Bling products route error:', error);
+    const url = new URL(request.url);
+    const cached = await readLastGoodCatalog();
+    if (cached?.products.length) {
+      const filtered = filterProducts(cached.products, url);
+      return json(
+        {
+          products: filtered,
+          total: filtered.length,
+          page: 1,
+          limit: Math.min(100, Math.max(1, Number(url.searchParams.get('limite') || 20) || 20)),
+          complete: true,
+          source: 'cache',
+          savedAt: cached.savedAt || null,
+          stale: true,
+          filters: {
+            query: url.searchParams.get('busca') || url.searchParams.get('q') || '',
+            category: url.searchParams.get('categoria') || '',
+            activeOnly: url.searchParams.get('ativos') === '1',
+            inStockOnly: url.searchParams.get('estoque') === '1',
+          },
+        },
+        200,
+        { 'Cache-Control': 'no-store' },
+      );
+    }
     return json(
       { error: error instanceof Error ? error.message : 'Não foi possível consultar os produtos no Bling.' },
       503,
