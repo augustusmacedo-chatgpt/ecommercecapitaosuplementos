@@ -8,16 +8,31 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code');
   const returnedState = url.searchParams.get('state');
   const error = url.searchParams.get('error');
-  const expectedState = parseCookies(request)[STATE_COOKIE];
+  const cookieState = parseCookies(request)[STATE_COOKIE];
 
   if (error) return fail('A autorização no Bling não foi concluída.');
-  if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
+  if (!code || !returnedState) {
     return fail('Não foi possível validar a autorização. Tente conectar novamente.');
   }
 
   try {
     const config = await loadStoredData();
     if (!config?.clientId || !config.clientSecret) return fail('As credenciais do aplicativo não estão configuradas.');
+
+    const storedState = config.oauthState;
+    const stateExpiresAt = Number(config.oauthStateExpiresAt || 0);
+    const stateExpired = !stateExpiresAt || Date.now() > stateExpiresAt;
+
+    if (!storedState || stateExpired || returnedState !== storedState) {
+      return fail('Não foi possível validar a autorização. Tente conectar novamente.');
+    }
+
+    if (cookieState && cookieState !== returnedState) {
+      return fail('Não foi possível validar a autorização. Tente conectar novamente.');
+    }
+
+    const { oauthState: _oauthState, oauthStateExpiresAt: _oauthStateExpiresAt, ...configWithoutState } = config;
+    await saveStoredData(configWithoutState);
 
     const basic = btoa(`${config.clientId}:${config.clientSecret}`);
     const tokenResponse = await fetch('https://api.bling.com.br/Api/v3/oauth/token', {
@@ -41,7 +56,7 @@ export async function GET(request: Request) {
 
     const expiresIn = Math.max(60, Number(tokens.expires_in ?? 21600));
     await saveStoredData({
-      ...config,
+      ...configWithoutState,
       accessToken: tokens.access_token,
       accessTokenExpiresAt: Date.now() + expiresIn * 1000,
       refreshToken: tokens.refresh_token,
@@ -70,5 +85,5 @@ function errorPage(message: string) {
 }
 
 function escapeHtml(value: string) {
-  return value.replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char] || char));
+  return value.replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"' : '&quot;' }[char] || char));
 }
