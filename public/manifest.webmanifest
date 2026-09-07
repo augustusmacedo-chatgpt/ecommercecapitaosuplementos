@@ -1,7 +1,7 @@
 {
-  "name": "Capitão Suplementos",
-  "short_name": "Capitão",
-  "description": "Capitão Suplementos — Assuma o comando da sua suplementação.",
+  "name": "PDV NIEGPT — Capitão Suplementos",
+  "short_name": "PDV NIEGPT",
+  "description": "PDV NIEGPT — Sistema de Gestão Integrado da Capitão Suplementos.",
   "start_url": "/pdv",
   "scope": "/",
   "display": "standalone",
@@ -9,22 +9,22 @@
   "theme_color": "#101010",
   "icons": [
     {
-      "src": "/Logo_Capitao_Esportivo.png",
+      "src": "/pdv-niegpt-icon.svg",
       "sizes": "any",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "Abrir PDV",
+      "name": "Abrir PDV NIEGPT",
       "short_name": "PDV",
       "url": "/pdv",
       "icons": [
         {
-          "src": "/Logo_Capitao_Esportivo.png",
+          "src": "/pdv-niegpt-icon.svg",
           "sizes": "any",
-          "type": "image/png"
+          "type": "image/svg+xml"
         }
       ]
     }
