@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Banknote, Check, CreditCard, FileText, Menu, Minus, Plus, QrCode, Search, ShoppingCart, Sparkles, Trash2, UserRound, X } from 'lucide-react';
 
 type Product = { id: number; name: string; code?: string; ean?: string; price: number; image?: string; stock: number; stockByLocation: { camapua: number; newfit: number } };
@@ -84,6 +84,7 @@ export default function Pdv({ initialLocation = 'camapua', lockLocation = false 
   const [menuOpen, setMenuOpen] = useState(false);
   const [view, setView] = useState<View>('sale');
   const [products, setProducts] = useState<Product[]>(() => readCatalogCache()?.products || []);
+  const hydratedStockIds = useRef(new Set<number>());
   const [catalogState, setCatalogState] = useState<'loading' | 'live' | 'cached' | 'offline'>('loading');
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -193,6 +194,60 @@ export default function Pdv({ initialLocation = 'camapua', lockLocation = false 
       return tokens.every(token => haystack.includes(token));
     }).sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), 'pt-BR', { numeric: true, sensitivity: 'base' })).slice(0, 30);
   }, [products, otherStoreQuery]);
+
+  // O catálogo em lista do Bling pode vir sem os saldos por depósito.
+  // Quando um produto fica visível no PDV/consulta, buscamos o detalhe real
+  // e atualizamos apenas os contadores NEWFIT e CAMAPUÃ daquele produto.
+  useEffect(() => {
+    const candidates = [
+      ...visibleProducts,
+      ...(otherStoreOpen ? otherStoreProducts : []),
+    ];
+    const ids = Array.from(new Set(candidates.map(product => product.id)))
+      .filter(id => Number.isFinite(id) && id > 0 && !hydratedStockIds.current.has(id))
+      .slice(0, 30);
+
+    if (!ids.length || !navigator.onLine) return;
+
+    ids.forEach(id => hydratedStockIds.current.add(id));
+    let cancelled = false;
+
+    const hydrate = async () => {
+      try {
+        const response = await fetch('/api/bling/products?ids=' + ids.join(','), { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) {
+          ids.forEach(id => hydratedStockIds.current.delete(id));
+          return;
+        }
+
+        const detailed = mapCatalogProducts({ products: Array.isArray(data?.products) ? data.products : [] });
+        if (!detailed.length) {
+          ids.forEach(id => hydratedStockIds.current.delete(id));
+          return;
+        }
+
+        const byId = new Map(detailed.map(product => [product.id, product]));
+        setProducts(current => {
+          const next = current.map(product => {
+            const detail = byId.get(product.id);
+            return detail ? {
+              ...product,
+              stock: detail.stock,
+              stockByLocation: detail.stockByLocation,
+            } : product;
+          });
+          writeCatalogCache(next);
+          return next;
+        });
+      } catch {
+        ids.forEach(id => hydratedStockIds.current.delete(id));
+      }
+    };
+
+    void hydrate();
+    return () => { cancelled = true; };
+  }, [visibleProducts, otherStoreOpen, otherStoreProducts]);
 
   const activePayment = payments.find(p => p.id === selectedPayment);
   const paymentLabel = activePayment?.id.startsWith('credit') ? `CARTÃO CRÉDITO ${creditInstallment}X` : activePayment?.label || '';
