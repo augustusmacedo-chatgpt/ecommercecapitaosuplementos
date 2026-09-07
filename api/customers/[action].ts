@@ -94,7 +94,7 @@ async function verifyCode(request: Request) {
     // Migra cadastros antigos para a nova base no primeiro acesso válido.
     customer = await saveCustomer({ ...customer, id: customer.id || crypto.randomUUID(), email, emailVerified: true });
     // Migra pontos antigos vinculados ao e-mail para o novo cliente_id no primeiro acesso válido.
-    const legacyPoints = await get(accountStorageKey(\`email:\${email}\`));
+    const legacyPoints = await get(accountStorageKey(`email:${email}`));
     const currentPoints = await get(accountStorageKey(customer.id));
     if (legacyPoints?.stream && !currentPoints?.stream) {
       const legacyData = JSON.parse(await new Response(legacyPoints.stream).text());
