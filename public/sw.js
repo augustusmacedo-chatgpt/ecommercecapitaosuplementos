@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitao-shell-v1';
+const CACHE_NAME = 'capitao-shell-v2';
 const APP_SHELL = ['/pdv', '/manifest.webmanifest', '/Logo_Capitao_Esportivo.png'];
 
 self.addEventListener('install', event => {
@@ -13,5 +13,23 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request).then(response => response || caches.match('/pdv'))));
+
+  const isCatalog = url.pathname === '/api/bling/products';
+  const isStaticAsset = url.pathname.startsWith('/assets/') || url.pathname === '/pdv' || event.request.mode === 'navigate';
+
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (response.ok && (isCatalog || isStaticAsset)) {
+          event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone())));
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') return (await caches.match('/pdv')) || Response.error();
+        return Response.error();
+      })
+  );
 });
