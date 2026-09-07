@@ -1,22 +1,16 @@
 import { useState } from 'react';
 import { ArrowLeft, LockKeyhole, ShieldCheck } from 'lucide-react';
 
-function mask(value: string) {
-  const d = value.replace(/\D/g, '').slice(0, 14);
-  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-  return d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-}
-
 export default function ReconnectPage() {
-  const [document, setDocument] = useState(localStorage.getItem('capitao-verified-document') || '');
+  const [email, setEmail] = useState(localStorage.getItem('capitao-verified-email') || '');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'document' | 'code'>('document');
+  const [step, setStep] = useState<'email' | 'code'>('email');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function sendCode() {
     setLoading(true); setMessage('');
-    const r = await fetch('/api/customers/request-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document }) });
+    const r = await fetch('/api/customers/request-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
     const data = await r.json().catch(() => ({}));
     setLoading(false);
     if (!r.ok) { setMessage(data.error || 'Não foi possível renovar sua sessão.'); return; }
@@ -26,12 +20,12 @@ export default function ReconnectPage() {
 
   async function verify() {
     setLoading(true); setMessage('');
-    const r = await fetch('/api/customers/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document, code }) });
+    const r = await fetch('/api/customers/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
     const data = await r.json().catch(() => ({}));
     setLoading(false);
     if (!r.ok) { setMessage(data.error || 'Código inválido ou expirado.'); return; }
-    const normalized = document.replace(/\D/g, '');
-    localStorage.setItem('capitao-verified-document', normalized);
+    const normalized = email.trim().toLowerCase();
+    localStorage.setItem('capitao-verified-email', normalized); if (data.sessionToken) localStorage.setItem('capitao-customer-session', data.sessionToken); if (data.customerId) localStorage.setItem('capitao-customer-id', data.customerId);
     localStorage.setItem('capitao-verified-at', String(Date.now()));
     location.replace('/checkout');
   }
@@ -39,13 +33,13 @@ export default function ReconnectPage() {
   return <main className="reconnect-page"><style>{styles}</style>
     <div className="reconnect-brand"><img src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /><span>ASSUMA O COMANDO.</span></div>
     <section className="reconnect-card">
-      <div className="reconnect-icon">{step === 'document' ? <LockKeyhole size={25}/> : <ShieldCheck size={27}/>}</div>
-      <span className="reconnect-eyebrow">{step === 'document' ? 'SESSION EXPIRED' : 'SECURE RECONNECTION'}</span>
-      <h1>{step === 'document' ? 'Sua sessão foi encerrada.' : 'Confirme sua identidade novamente.'}</h1>
-      <p>{step === 'document' ? 'Você foi desconectado para sua segurança. Seu carrinho continua salvo e você pode renovar sua sessão sem perder nenhum produto.' : 'Enviamos um novo código de segurança para o e-mail cadastrado. Digite-o abaixo para voltar ao seu checkout.'}</p>
-      {step === 'document' ? <>
-        <label>CPF ou CNPJ<input value={document} onChange={e=>setDocument(mask(e.target.value))} placeholder="Digite seu CPF/CNPJ" inputMode="numeric" /></label>
-        <button className="reconnect-primary" onClick={sendCode} disabled={loading || document.replace(/\D/g,'').length < 11}>{loading ? 'ENVIANDO CÓDIGO...' : 'RENOVAR MINHA SESSÃO'}</button>
+      <div className="reconnect-icon">{step === 'email' ? <LockKeyhole size={25}/> : <ShieldCheck size={27}/>}</div>
+      <span className="reconnect-eyebrow">{step === 'email' ? 'SESSION EXPIRED' : 'SECURE RECONNECTION'}</span>
+      <h1>{step === 'email' ? 'Sua sessão foi encerrada.' : 'Confirme sua identidade novamente.'}</h1>
+      <p>{step === 'email' ? 'Você foi desconectado para sua segurança. Seu carrinho continua salvo e você pode renovar sua sessão sem perder nenhum produto.' : 'Enviamos um novo código de segurança para o e-mail cadastrado. Digite-o abaixo para voltar ao seu checkout.'}</p>
+      {step === 'email' ? <>
+        <label>E-mail<input value={email} onChange={e=>setDocument(e.target.value)} placeholder="Digite seu e-mail" inputMode="numeric" /></label>
+        <button className="reconnect-primary" onClick={sendCode} disabled={loading || email.replace(/\D/g,'').length < 11}>{loading ? 'ENVIANDO CÓDIGO...' : 'RENOVAR MINHA SESSÃO'}</button>
       </> : <>
         <div className="reconnect-destination">Código enviado para <strong>seu e-mail cadastrado</strong></div>
         <label>Código de 6 dígitos<input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000" inputMode="numeric" autoFocus /></label>
