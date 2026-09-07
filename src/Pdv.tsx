@@ -7,6 +7,7 @@ type CartItem = Product & { quantity: number };
 type Customer = { name: string; document: string; phone: string; email: string; points?: number };
 type View = 'sale' | 'customers' | 'orders' | 'nfc' | 'closing' | 'closing-message';
 type LocationConfig = { label: string; stock: string; payments: [string, string, string, string, Payment['icon']][] };
+type LocationKey = 'camapua' | 'newfit';
 type CatalogCache = { savedAt: number; products: Product[] };
 
 const LOCATIONS: Record<'camapua' | 'newfit', LocationConfig> = {
@@ -51,7 +52,7 @@ function locationStock(raw: any, location: 'camapua' | 'newfit') {
 
   return matches.reduce((sum: number, item: any) => sum + Number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual ?? 0), 0);
 }
-const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v1';
+const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v2';
 function readCatalogCache(): CatalogCache | null {
   try {
     const raw = localStorage.getItem(PDV_CATALOG_CACHE_KEY);
@@ -76,8 +77,8 @@ function mapCatalogProducts(data: any): Product[] {
 }
 function paymentIcon(type: Payment['icon']) { if (type === 'credit' || type === 'debit') return <CreditCard size={17} />; if (type === 'pix') return <QrCode size={17} />; if (type === 'cash') return <Banknote size={17} />; return <FileText size={17} />; }
 
-export default function Pdv() {
-  const [location, setLocation] = useState<'camapua' | 'newfit'>('camapua');
+export default function Pdv({ initialLocation = 'camapua', lockLocation = false }: { initialLocation?: LocationKey; lockLocation?: boolean }) {
+  const [location, setLocation] = useState<LocationKey>(initialLocation);
   const [seller, setSeller] = useState(readActiveSeller);
   const [sortMode, setSortMode] = useState<'az' | 'sku'>('az');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -151,6 +152,8 @@ export default function Pdv() {
     return () => { active = false; window.removeEventListener('online', onOnline); };
   }, []);
 
+  useEffect(() => { setLocation(initialLocation); }, [initialLocation]);
+
   useEffect(() => { setSelectedPayment(''); setCreditInstallment('1'); }, [location]);
 
   useEffect(() => {
@@ -194,8 +197,30 @@ export default function Pdv() {
   const activePayment = payments.find(p => p.id === selectedPayment);
   const paymentLabel = activePayment?.id.startsWith('credit') ? `CARTÃO CRÉDITO ${creditInstallment}X` : activePayment?.label || '';
 
-  function add(product: Product) { setCart(current => { const found = current.find(x => x.id === product.id); return found ? current.map(x => x.id === product.id ? { ...x, quantity: x.quantity + 1 } : x) : [...current, { ...product, quantity: 1 }]; }); }
-  function changeQty(id: number, delta: number) { setCart(current => current.map(x => x.id === id ? { ...x, quantity: Math.max(0, x.quantity + delta) } : x).filter(x => x.quantity > 0)); }
+  function add(product: Product) {
+    const available = product.stockByLocation[location];
+    setCart(current => {
+      const found = current.find(x => x.id === product.id);
+      const nextQuantity = (found?.quantity || 0) + 1;
+      if (available <= 0 || nextQuantity > available) {
+        setMessage(`${product.name}: estoque indisponível na ${LOCATIONS[location].label}.`);
+        return current;
+      }
+      return found ? current.map(x => x.id === product.id ? { ...x, quantity: nextQuantity } : x) : [...current, { ...product, quantity: 1 }];
+    });
+  }
+  function changeQty(id: number, delta: number) {
+    setCart(current => current.map(x => {
+      if (x.id !== id) return x;
+      const nextQuantity = Math.max(0, x.quantity + delta);
+      const available = x.stockByLocation[location];
+      if (delta > 0 && nextQuantity > available) {
+        setMessage(`${x.name}: quantidade máxima disponível nesta loja é ${available}.`);
+        return x;
+      }
+      return { ...x, quantity: nextQuantity };
+    }).filter(x => x.quantity > 0));
+  }
   function removeFromCart(id: number) { setCart(current => current.filter(item => item.id !== id)); }
   function go(next: View) { setView(next); setMenuOpen(false); setCustomerPanel(false); setClosingStep('form'); }
   function saveCustomer() { if (!customerForm.name.trim() || !customerForm.document.trim()) { setMessage('Informe pelo menos nome e CPF/CNPJ para vincular o cliente.'); return; } setCustomer({ ...customerForm, points: 0 }); setCustomerPanel(false); setMessage('Cliente vinculado à venda.'); }
@@ -226,7 +251,7 @@ export default function Pdv() {
     <header className="pdv-top">
       <div className="pdv-brand"><img className="pdv-logo" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /><div><small>PDV • OPERAÇÃO</small><strong>CAPITÃO SUPLEMENTOS</strong></div></div>
       <div className="pdv-top-meta">
-        <div className="pdv-context"><div><label>LOJA / ESTOQUE</label><select value={location} onChange={e => setLocation(e.target.value as 'camapua' | 'newfit')}><option value="camapua">CAMAPUÃ · ESTOQUE MATRIZ</option><option value="newfit">NEWFIT · ESTOQUE NEWFIT</option></select></div></div>
+        <div className="pdv-context"><div><label>LOJA / ESTOQUE</label><select value={location} disabled={lockLocation} onChange={e => setLocation(e.target.value as LocationKey)}><option value="camapua">CAMAPUÃ · MATRIZ</option><option value="newfit">NEWFIT · DEPÓSITO NEWFIT</option></select></div></div>
         <div className="pdv-context"><div><label>VENDEDOR</label><select className="seller-select" value={seller} onChange={e => setSeller(e.target.value)}>{SELLERS.map(name => <option key={name}>{name}</option>)}</select></div></div>
         <button className="pdv-menu-btn" onClick={() => setMenuOpen(v => !v)} aria-label="Abrir menu"><Menu size={19}/></button>
       </div>
@@ -235,7 +260,7 @@ export default function Pdv() {
 
     {view === 'sale' ? <main className="pdv-main">
       <aside className="pdv-left"><div className="pdv-eyebrow">CLIENTE</div><div className="pdv-client">{customer ? <><div className="pdv-client-main"><div className="pdv-avatar"><UserRound size={17}/></div><div><strong>{customer.name}</strong><span>{customer.document}</span></div></div><div className="pdv-client-points">{customer.points?.toLocaleString('pt-BR') || 0} PONTOS DISPONÍVEIS</div><div className="pdv-client-actions"><button className="pdv-ghost" onClick={() => setCustomerPanel(true)}>CONSULTAR</button><button className="pdv-ghost" onClick={() => setCustomer(null)}>TROCAR</button></div></> : <><div className="pdv-client-main"><div className="pdv-avatar"><UserRound size={17}/></div><div><strong>Venda sem cliente</strong><span>Identifique para Pontos</span></div></div><button className="pdv-ghost" style={{width:'100%',marginTop:12}} onClick={() => setCustomerPanel(true)}>+ ADICIONAR / CONSULTAR CLIENTE</button></>}</div><div className="pdv-shortcuts"><div className="pdv-eyebrow">ATALHOS</div><div className="pdv-shortcut"><span>Buscar produto</span><kbd>F2</kbd></div><div className="pdv-shortcut"><span>Cliente</span><kbd>F3</kbd></div><div className="pdv-shortcut"><span>Finalizar venda</span><kbd>F8</kbd></div><div className="pdv-shortcut"><span>Fechar painel</span><kbd>ESC</kbd></div></div><div className="pdv-session"><label>OPERAÇÃO ATUAL</label><strong>{seller}</strong><span>{config.label} · {config.stock}</span><div className="pdv-seller-list"><div className="pdv-eyebrow">VENDEDORES</div>{SELLERS.map(name => <button key={name} className={`pdv-seller-option ${seller === name ? 'active' : ''}`} onClick={() => assumeSeller(name)}><span>{name}</span>{seller === name && <small>EM OPERAÇÃO</small>}</button>)}</div></div></aside>
-      <section className="pdv-center"><div className="pdv-search"><Search size={17} color="#77736c"/><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto por nome, código ou EAN..."/><span style={{fontSize:8,color:'#aaa'}}>ENTER não é necessário</span></div><div className="pdv-search-hint"><span>{query ? `${visibleProducts.length} produto(s) encontrado(s)` : 'Digite qualquer parte do nome ou código para localizar rapidamente'}</span><div className="pdv-sort"><button className={sortMode === 'az' ? 'active' : ''} onClick={() => setSortMode('az')}>A-Z</button><button className={sortMode === 'sku' ? 'active' : ''} onClick={() => setSortMode('sku')}>SKU</button><b>{query ? 'Busca inteligente ativa' : <>CATÁLOGO BLING {catalogState !== 'live' && catalogState !== 'loading' && <span className={`pdv-sync-status ${catalogState}`}>{catalogState === 'offline' ? 'MODO OFFLINE' : 'CÓPIA SEGURA'}</span>}</>}</b></div></div><div className="pdv-product-list">{visibleProducts.map(p => { const localStock = p.stockByLocation[location]; return <button className="pdv-product" key={p.id} onClick={() => add(p)}>{p.image ? <img src={p.image} alt=""/> : <div className="noimg">CAPITÃO</div>}<span className="pdv-product-sku">SKU {p.code || '—'}</span><strong>{p.name}</strong><div className="pdv-product-meta"><span className="pdv-product-price">{money(p.price)}</span><span className="pdv-stock">{localStock > 0 ? `${localStock} em estoque` : 'estoque consultar'}</span></div></button>})}</div>{!visibleProducts.length && <div className="pdv-empty">Nenhum produto encontrado. Tente outra palavra, código ou EAN.</div>}</section>
+      <section className="pdv-center"><div className="pdv-search"><Search size={17} color="#77736c"/><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto por nome, código ou EAN..."/><span style={{fontSize:8,color:'#aaa'}}>ENTER não é necessário</span></div><div className="pdv-search-hint"><span>{query ? `${visibleProducts.length} produto(s) encontrado(s)` : 'Digite qualquer parte do nome ou código para localizar rapidamente'}</span><div className="pdv-sort"><button className={sortMode === 'az' ? 'active' : ''} onClick={() => setSortMode('az')}>A-Z</button><button className={sortMode === 'sku' ? 'active' : ''} onClick={() => setSortMode('sku')}>SKU</button><b>{query ? 'Busca inteligente ativa' : <>CATÁLOGO BLING {catalogState !== 'live' && catalogState !== 'loading' && <span className={`pdv-sync-status ${catalogState}`}>{catalogState === 'offline' ? 'MODO OFFLINE' : 'CÓPIA SEGURA'}</span>}</>}</b></div></div><div className="pdv-product-list">{visibleProducts.map(p => { const localStock = p.stockByLocation[location]; return <button className="pdv-product" key={p.id} onClick={() => add(p)} disabled={localStock <= 0}>{p.image ? <img src={p.image} alt=""/> : <div className="noimg">CAPITÃO</div>}<span className="pdv-product-sku">SKU {p.code || '—'}</span><strong>{p.name}</strong><div className="pdv-product-meta"><span className="pdv-product-price">{money(p.price)}</span><span className="pdv-stock">{localStock > 0 ? `${localStock} em estoque` : 'SEM ESTOQUE NESTA LOJA'}</span></div></button>})}</div>{!visibleProducts.length && <div className="pdv-empty">Nenhum produto encontrado. Tente outra palavra, código ou EAN.</div>}</section>
       <aside className="pdv-right"><div className="pdv-cart"><div className="pdv-cart-head"><div className="pdv-eyebrow">VENDA ATUAL</div><span className="pdv-count">{itemCount} {itemCount === 1 ? 'ITEM' : 'ITENS'}</span></div><div className="pdv-cart-list">{cart.length ? cart.map(item => <div className="pdv-cart-item" key={item.id}><div className="pdv-cart-row"><div className="pdv-cart-main"><div className="pdv-cart-thumb">{item.image ? <img src={item.image} alt=""/> : <div className="noimg">CAPITÃO</div>}</div><div className="pdv-cart-info"><strong>{item.name}</strong><span className="pdv-cart-code">Código: {item.code || '—'}</span></div></div><span className="pdv-cart-item-total">{money(item.price * item.quantity)}</span></div><div className="pdv-cart-sub"><span>{money(item.price)} cada</span><div className="pdv-step"><button onClick={() => changeQty(item.id,-1)} aria-label="Diminuir"><Minus size={12}/></button><b>{item.quantity}</b><button onClick={() => changeQty(item.id,1)} aria-label="Aumentar"><Plus size={12}/></button></div></div><button className="pdv-cart-remove" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.name} da venda`}><Trash2 size={12}/> REMOVER</button></div>) : <div className="pdv-empty">Adicione produtos para iniciar a venda.</div>}</div><div className="pdv-summary"><div className="pdv-summary-line"><span>Itens</span><b>{itemCount}</b></div><div className="pdv-summary-line"><span>Subtotal</span><b>{money(total)}</b></div><div className="pdv-summary-total"><span>TOTAL DA VENDA</span><strong>{money(total)}</strong></div></div><div className="pdv-payment-wrap"><div className="pdv-payment-head"><div className="pdv-eyebrow">PAGAMENTO</div><span className="pdv-payment-current">{paymentLabel || 'Selecione uma forma'}</span></div><div className="pdv-payment-grid">{payments.filter(p => !p.id.startsWith('credit')).map(p => <button className={`pdv-payment ${selectedPayment === p.id ? 'selected' : ''}`} key={p.id} onClick={() => setSelectedPayment(p.id)}><span className="pdv-payment-icon">{paymentIcon(p.icon)}</span><span><b>{p.label.replace('CARTÃO ', '')}</b><small>{p.account}</small></span></button>)}<button className={`pdv-payment ${selectedPayment.startsWith('credit') ? 'selected' : ''}`} onClick={() => setSelectedPayment(`credit${creditInstallment}`)}><span className="pdv-payment-icon"><CreditCard size={17}/></span><span><b>CARTÃO CRÉDITO</b><small>Escolher parcelas</small></span></button></div>{selectedPayment.startsWith('credit') && <div className="pdv-installments">{['1','2','3'].map(n => <button key={n} className={creditInstallment === n ? 'selected' : ''} onClick={() => { setCreditInstallment(n); setSelectedPayment(`credit${n}`); }}>{n}X</button>)}</div>}</div><div className="pdv-points"><Sparkles size={16} className="pdv-points-icon"/><div><strong>CAPITÃO PONTOS</strong><span>{customer ? 'Cliente identificado. Pontos disponíveis na venda.' : 'Identifique o cliente para utilizar pontos.'}</span></div></div><button className="pdv-finalize" disabled={!cart.length || !selectedPayment} onClick={() => setShowFinalize(true)}>FINALIZAR VENDA · {money(total)}</button></div></aside>
     </main> : view === 'closing' && closingStep === 'form' ? <section className="pdv-page"><div className="pdv-page-head"><button className="pdv-back" onClick={() => go('sale')}><ArrowLeft size={14}/> VOLTAR</button><div><h1>Fechamento do caixa</h1><span style={{fontSize:8,color:'#777b80'}}>{config.label} · {seller} · pré-fechamento obrigatório para troca de caixa</span></div></div><div className="pdv-closing-grid"><div className="pdv-card"><div className="pdv-eyebrow">VALORES VENDIDOS PELO SISTEMA</div>{soldByPayment.map(p => <div className="pdv-closing-line" key={p.id}><div><strong>{p.label}</strong><b>{money(p.sold)}</b></div><small>{p.account}</small></div>)}<div className="pdv-closing-total"><div><span>TOTAL VENDIDO</span><b>{money(expectedTotal)}</b></div></div></div><div className="pdv-card"><div className="pdv-eyebrow">VALORES RECEBIDOS</div>{soldByPayment.map(p => { const received = Number(String(closingReceived[p.id] || '').replace(',','.')) || 0; const ok = Math.abs(p.sold - received) < .005; return <div className="pdv-closing-line" key={p.id}><div><strong>{p.label}</strong><input inputMode="decimal" placeholder="R$ 0,00" value={closingReceived[p.id] || ''} onChange={e => setClosingReceived(v => ({...v,[p.id]:e.target.value}))}/></div><small>{p.account} · esperado {money(p.sold)}</small><div className={`pdv-check ${ok ? 'ok' : 'bad'}`}>{ok ? <><Check size={13}/> VALOR CONFERE</> : <><X size={13}/> DIVERGÊNCIA · {money(Math.abs(p.sold-received))}</>}</div></div>})}<div className="pdv-closing-total"><div><span>TOTAL ESPERADO</span><b>{money(expectedTotal)}</b></div><div><span>TOTAL RECEBIDO</span><b>{money(receivedTotal)}</b></div><div><span>DIFERENÇA</span><strong className={Math.abs(expectedTotal-receivedTotal)<.005?'ok':'bad'}>{money(receivedTotal-expectedTotal)}</strong></div></div><button className="pdv-finalize" disabled={!allClosingOk} onClick={() => setClosingStep('message')}>CONFERIR E ENCERRAR CAIXA</button></div></div></section> : view === 'closing' && closingStep === 'message' ? <section className="pdv-page"><div className="pdv-page-head"><button className="pdv-back" onClick={() => go('sale')}><ArrowLeft size={14}/> VOLTAR</button></div><div className="pdv-message"><div className="char">⚓</div><div style={{color:'#bd9149',fontSize:8,fontWeight:900,letterSpacing:2}}>ASSUMA O COMANDO</div><blockquote>{[...KLAUS,...REBECA][Math.floor(Math.random()*12)]}</blockquote><button onClick={() => { setClosingReceived({}); setView('sale'); setClosingStep('form'); setMessage('Caixa encerrado.'); }}>ABRIR NOVO CAIXA</button></div></section> : <section className="pdv-page"><div className="pdv-page-head"><button className="pdv-back" onClick={() => go('sale')}><ArrowLeft size={14}/> VOLTAR</button><h1>{view === 'orders' ? 'Consultar vendas' : view === 'nfc' ? 'Consultar NFC-e' : 'Consulta'}</h1></div><div className="pdv-card"><div className="pdv-search" style={{background:'#181a1b',borderColor:'#34373a'}}><Search size={16}/><input value={orderSearch} onChange={e=>setOrderSearch(e.target.value)} placeholder={view === 'orders' ? 'Buscar pedido, cliente ou CPF...' : 'Buscar número da NFC-e...'}/></div><div className="pdv-empty">A consulta será carregada diretamente do Bling. O histórico não será apagado pelo PDV.</div></div></section>}
 
