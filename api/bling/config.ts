@@ -23,12 +23,16 @@ export async function GET() {
       { 'Cache-Control': 'no-store' },
     );
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Não foi possível carregar a configuração do Bling.' }, 503);
+    return json(
+      { error: error instanceof Error ? error.message : 'Não foi possível carregar a configuração do Bling.' },
+      503,
+    );
   }
 }
 
 export async function POST(request: Request) {
   if (!hasPersistentStorage()) return storageUnavailable();
+
   try {
     const body = await readJsonBody(request) as Partial<BlingConfig>;
     const current = await loadStoredData();
@@ -45,9 +49,44 @@ export async function POST(request: Request) {
       return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
     }
 
-    await saveStoredData({ ...current, clientId, clientSecret, inviteLink });
-    return json({ ok: true, configured: true, secretConfigured: true });
+    // Changing OAuth application credentials invalidates the old authorization.
+    // Never keep tokens that belong to a previous Client ID/Secret.
+    const credentialsChanged =
+      clientId !== (current?.clientId || '') ||
+      clientSecret !== (current?.clientSecret || '');
+
+    const next = {
+      ...current,
+      clientId,
+      clientSecret,
+      inviteLink,
+      ...(credentialsChanged
+        ? {
+            accessToken: undefined,
+            accessTokenExpiresAt: undefined,
+            refreshToken: undefined,
+            oauthState: undefined,
+            oauthStateExpiresAt: undefined,
+          }
+        : {}),
+    };
+
+    await saveStoredData(next);
+
+    return json(
+      {
+        ok: true,
+        configured: true,
+        secretConfigured: true,
+        authorizationReset: credentialsChanged,
+      },
+      200,
+      { 'Cache-Control': 'no-store' },
+    );
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Não foi possível salvar a configuração do Bling.' }, 503);
+    return json(
+      { error: error instanceof Error ? error.message : 'Não foi possível salvar a configuração do Bling.' },
+      503,
+    );
   }
 }
