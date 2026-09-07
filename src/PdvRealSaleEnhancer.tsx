@@ -141,9 +141,11 @@ export default function PdvRealSaleEnhancer() {
     const submit = async (button: HTMLButtonElement) => {
       if (submitting) return; submitting = true; setButtonState(button, 'REGISTRANDO VENDA...', true);
       const items = readCartFromDom(), payment = readPayment(), customer = readCustomer(), choice = readDocumentChoice(), seller = readSeller();
-      if (!items.length || !payment || !choice || !seller.id) { submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash(!seller.id ? 'O vendedor do Bling ainda não foi carregado. Aguarde e tente novamente.' : 'Complete produtos, pagamento e documento antes de finalizar.', true); return; }
+      // O vendedor oficial da venda é validado no servidor pelo usuário logado no PDV
+      // (user.blingSellerId). A lista visual de vendedores nunca pode bloquear o caixa.
+      if (!items.length || !payment || !choice) { submitting = false; setButtonState(button, 'CONFIRMAR VENDA'); flash('Complete produtos, pagamento e documento antes de finalizar.', true); return; }
       const checkoutId = `PDV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-      const payload = { checkoutId, location: readLocation(), sellerId: seller.id, sellerName: seller.name, customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) };
+      const payload = { checkoutId, location: readLocation(), sellerId: seller.id || undefined, sellerName: seller.name || undefined, customer, payment, documentChoice: choice, items, total: items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) };
       try {
         if (!navigator.onLine) throw new TypeError('OFFLINE');
         const response = await originalFetch('/api/bling/pdv-sale', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
