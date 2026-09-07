@@ -109,72 +109,100 @@ export async function GET(request: Request) {
       return json({ product }, 200, { 'Cache-Control': 'no-store' });
     }
 
-    // Consulta detalhada sob demanda: a listagem do Bling não traz,
-    // necessariamente, os saldos separados por depósito. Para o PDV,
-    // buscamos apenas os produtos visíveis/consultados e retornamos os
-    // saldos reais de cada depósito sem carregar o catálogo inteiro novamente.
+    // Consulta detalhada sob demanda: cada PDV precisa do saldo do seu
+    // próprio depósito. Em vez de depender da resposta agregada, consultamos
+    // diretamente os dois depósitos operacionais conhecidos da empresa.
     if (ids.length) {
-      // A rota de detalhe do produto não é a fonte mais confiável para os
-      // saldos separados por depósito. O Bling disponibiliza os saldos reais
-      // em /estoques/saldos, inclusive com o saldo virtual por depósito.
       const stockParams = new URLSearchParams();
       ids.forEach(productId => stockParams.append('idsProdutos[]', productId));
 
-      const [stockResponse, depositsResponse] = await Promise.all([
-        fetch('https://api.bling.com.br/Api/v3/estoques/saldos?' + stockParams.toString(), { headers: authHeaders(token) }),
-        fetch('https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100', { headers: authHeaders(token) }),
+      const depositsResponse = await fetch(
+        'https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100',
+        { headers: authHeaders(token) },
+      );
+      const depositsPayload = depositsResponse.ok
+        ? await depositsResponse.json() as { data?: any[] }
+        : { data: [] };
+      const deposits = Array.isArray(depositsPayload.data) ? depositsPayload.data : [];
+
+      const normDeposit = (value: unknown) => String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toUpperCase();
+
+      const depositName = (deposit: any) => String(
+        deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || ''
+      ).trim();
+
+      const matrixDeposit = deposits.find((deposit: any) => {
+        const name = normDeposit(depositName(deposit));
+        return name === 'MATRIZ' || name === 'ESTOQUE MATRIZ' || name.includes('MATRIZ');
+      });
+      const newfitDeposit = deposits.find((deposit: any) => {
+        const name = normDeposit(depositName(deposit));
+        return name === 'CAPITAO SUPLEMENTOS NEWFIT' || name === 'ESTOQUE NEWFIT' || name.includes('NEWFIT');
+      });
+
+      async function getDepositStock(deposit: any) {
+        const depositId = Number(deposit?.id);
+        if (!depositId) return { deposit, byProduct: new Map<number, number>() };
+        const response = await fetch(
+          'https://api.bling.com.br/Api/v3/estoques/saldos/' + depositId + '?' + stockParams.toString(),
+          { headers: authHeaders(token) },
+        );
+        const payload = response.ok ? await response.json() as { data?: any[] } : { data: [] };
+        const byProduct = new Map<number, number>();
+        for (const item of Array.isArray(payload.data) ? payload.data : []) {
+          const productId = Number(item?.produto?.id ?? item?.idProduto ?? item?.id);
+          if (!productId) continue;
+          const saldo = Number(
+            item?.saldoVirtualTotal ??
+            item?.saldoVirtual ??
+            item?.saldoFisicoTotal ??
+            item?.saldoFisico ??
+            item?.saldo ??
+            item?.quantidade ??
+            0
+          );
+          byProduct.set(productId, Number.isFinite(saldo) ? saldo : 0);
+        }
+        return { deposit, byProduct };
+      }
+
+      const [matrixStock, newfitStock] = await Promise.all([
+        getDepositStock(matrixDeposit),
+        getDepositStock(newfitDeposit),
       ]);
 
-      const stockPayload = stockResponse.ok ? await stockResponse.json() as { data?: any[] } : { data: [] };
-      const depositsPayload = depositsResponse.ok ? await depositsResponse.json() as { data?: any[] } : { data: [] };
-
-      const depositNames = new Map<number, string>(
-        (Array.isArray(depositsPayload.data) ? depositsPayload.data : [])
-          .map((deposit: any) => [Number(deposit?.id), String(deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || '').trim()] as [number, string])
-          .filter(([depositId, name]) => depositId > 0 && Boolean(name)),
-      );
-
-      const stockByProduct = new Map<number, any>(
-        (Array.isArray(stockPayload.data) ? stockPayload.data : [])
-          .map((item: any) => [Number(item?.produto?.id ?? item?.idProduto ?? item?.id), item] as [number, any])
-          .filter(([productId]) => productId > 0),
-      );
-
-      // O PDV já possui nome, preço e imagem do catálogo. Nesta consulta
-      // devolvemos somente o necessário para atualizar os saldos, evitando
-      // uma chamada individual de produto por item e respeitando o limite de
-      // requisições do Bling.
       const products = ids.map(productId => {
-        const stock = stockByProduct.get(Number(productId));
-        const deposits = Array.isArray(stock?.depositos)
-          ? stock.depositos.map((deposit: any) => {
-              const depositId = Number(deposit?.id ?? deposit?.deposito?.id ?? deposit?.idDeposito);
-              const name = depositNames.get(depositId)
-                || deposit?.deposito?.nome
-                || deposit?.deposito?.descricao
-                || deposit?.nome
-                || deposit?.descricao
-                || undefined;
-              const saldoVirtual = Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0);
-              return {
-                id: depositId || undefined,
-                nome: name,
-                saldo: saldoVirtual,
-                quantidade: saldoVirtual,
-                saldoVirtual,
-                deposito: {
-                  id: depositId || undefined,
-                  nome: name,
-                },
-              };
-            })
-          : [];
+        const idNumber = Number(productId);
+        const matrixSaldo = matrixStock.byProduct.get(idNumber) ?? 0;
+        const newfitSaldo = newfitStock.byProduct.get(idNumber) ?? 0;
+        const stockDeposits = [
+          matrixDeposit ? {
+            id: Number(matrixDeposit.id) || undefined,
+            nome: depositName(matrixDeposit),
+            saldo: matrixSaldo,
+            quantidade: matrixSaldo,
+            saldoVirtual: matrixSaldo,
+            deposito: { id: Number(matrixDeposit.id) || undefined, nome: depositName(matrixDeposit) },
+          } : null,
+          newfitDeposit ? {
+            id: Number(newfitDeposit.id) || undefined,
+            nome: depositName(newfitDeposit),
+            saldo: newfitSaldo,
+            quantidade: newfitSaldo,
+            saldoVirtual: newfitSaldo,
+            deposito: { id: Number(newfitDeposit.id) || undefined, nome: depositName(newfitDeposit) },
+          } : null,
+        ].filter(Boolean);
 
         return {
-          id: Number(productId),
+          id: idNumber,
           estoque: {
-            saldoVirtualTotal: Number(stock?.saldoVirtualTotal ?? stock?.saldoFisicoTotal ?? 0),
-            depositos,
+            saldoVirtualTotal: matrixSaldo + newfitSaldo,
+            depositos: stockDeposits,
           },
         };
       });
@@ -182,8 +210,12 @@ export async function GET(request: Request) {
       return json({
         products,
         total: products.length,
-        source: stockResponse.ok ? 'bling-stock-detail' : 'bling-detail',
-        stockSource: stockResponse.ok ? 'estoques/saldos' : 'produto',
+        source: 'bling-stock-by-deposit',
+        stockSource: 'estoques/saldos/{idDeposito}',
+        deposits: {
+          camapua: matrixDeposit ? { id: Number(matrixDeposit.id), nome: depositName(matrixDeposit) } : null,
+          newfit: newfitDeposit ? { id: Number(newfitDeposit.id), nome: depositName(newfitDeposit) } : null,
+        },
       }, 200, { 'Cache-Control': 'no-store' });
     }
 
