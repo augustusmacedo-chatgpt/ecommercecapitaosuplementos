@@ -27,11 +27,20 @@ function parsePrice(value: unknown) { const n = Number(value); return Number.isF
 function normalize(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim(); }
 function locationStock(raw: any, location: 'camapua' | 'newfit') {
   const deposits = raw?.estoque?.depositos;
-  if (!Array.isArray(deposits) || !deposits.length) return Number(raw?.estoque?.saldoVirtualTotal || 0);
+  // Nunca usar saldoVirtualTotal para uma loja específica: esse valor é agregado
+  // e faria NEWFIT e CAMAPUÃ exibirem o mesmo saldo.
+  if (!Array.isArray(deposits) || !deposits.length) return 0;
+
   const matches = deposits.filter((item: any) => {
     const name = normalize(String(item?.deposito?.nome || item?.nome || item?.local?.nome || item?.name || ''));
-    return location === 'newfit' ? name.includes('newfit') : name.includes('matriz') || name.includes('camapua');
+    if (location === 'newfit') {
+      return name === 'capitao suplementos newfit' || name === 'estoque newfit' || name.includes('newfit');
+    }
+    // No Bling, a loja CAPITÃO SUPLEMENTOS CAMAPUÃ continua vinculada ao
+    // depósito interno chamado ESTOQUE MATRIZ.
+    return name === 'estoque matriz' || name === 'capitao suplementos camapua' || name.includes('estoque matriz') || name.includes('camapua');
   });
+
   return matches.reduce((sum: number, item: any) => sum + Number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual ?? 0), 0);
 }
 const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v1';
