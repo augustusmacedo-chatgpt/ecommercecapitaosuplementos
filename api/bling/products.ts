@@ -140,45 +140,39 @@ export async function GET(request: Request) {
           .filter(([productId]) => productId > 0),
       );
 
-      const products: CatalogProduct[] = [];
-      for (let index = 0; index < ids.length; index += 1) {
-        if (index > 0) await sleep(90);
-        const product = await getDetail(ids[index], token);
-        if (!product) continue;
-
-        const stock = stockByProduct.get(Number(ids[index]));
-        if (stock) {
-          const deposits = Array.isArray(stock?.depositos)
-            ? stock.depositos.map((deposit: any) => {
-                const depositId = Number(deposit?.id ?? deposit?.deposito?.id);
-                const name = depositNames.get(depositId);
-                const saldoVirtual = Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0);
-                const saldoFisico = Number(deposit?.saldoFisico ?? saldoVirtual);
-                return {
+      // O PDV já possui nome, preço e imagem do catálogo. Nesta consulta
+      // devolvemos somente o necessário para atualizar os saldos, evitando
+      // uma chamada individual de produto por item e respeitando o limite de
+      // requisições do Bling.
+      const products = ids.map(productId => {
+        const stock = stockByProduct.get(Number(productId));
+        const deposits = Array.isArray(stock?.depositos)
+          ? stock.depositos.map((deposit: any) => {
+              const depositId = Number(deposit?.id ?? deposit?.deposito?.id);
+              const name = depositNames.get(depositId);
+              const saldoVirtual = Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0);
+              return {
+                id: depositId || undefined,
+                nome: name || deposit?.nome || undefined,
+                saldo: saldoVirtual,
+                quantidade: saldoVirtual,
+                saldoVirtual,
+                deposito: {
                   id: depositId || undefined,
                   nome: name || deposit?.nome || undefined,
-                  saldo: saldoVirtual,
-                  quantidade: saldoVirtual,
-                  saldoVirtual,
-                  deposito: {
-                    id: depositId || undefined,
-                    nome: name || deposit?.nome || undefined,
-                  },
-                  saldoFisico,
-                };
-              })
-            : [];
+                },
+              };
+            })
+          : [];
 
-          product.estoque = {
-            saldoVirtualTotal: Number(stock?.saldoVirtualTotal ?? stock?.saldoFisicoTotal ?? product.stock ?? 0),
+        return {
+          id: Number(productId),
+          estoque: {
+            saldoVirtualTotal: Number(stock?.saldoVirtualTotal ?? stock?.saldoFisicoTotal ?? 0),
             depositos,
-          };
-          product.stock = product.estoque.saldoVirtualTotal;
-          product.available = product.active && product.stock > 0;
-        }
-
-        products.push(product);
-      }
+          },
+        };
+      });
 
       return json({
         products,
