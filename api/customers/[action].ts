@@ -4,7 +4,7 @@ import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
 import { accountStorageKey } from '../../src/server/pontos.js';
 import { isValidEmail, normalizeEmail } from '../../src/server/customer-identity.js';
-import { findCustomersByName, loadCustomerByEmail, loadCustomerByPhone, loadCustomerById, normalizePhone, publicCustomer, saveCustomer, CustomerRecord } from '../../src/server/customer-store.js';
+import { CustomerAddress, CustomerRecord, findCustomersByName, loadCustomerByEmail, loadCustomerByPhone, loadCustomerById, normalizePhone, publicCustomer, removeCustomerAddress, saveCustomer, saveCustomerAddress, setDefaultCustomerAddress } from '../../src/server/customer-store.js';
 
 const otpKey = (email: string) => `customer-otp/${createHash('sha256').update(email).digest('hex')}.json`;
 const maskEmail = (email: string) => email.replace(/^(.).+(@.*)$/, '$1***$2');
@@ -148,6 +148,77 @@ async function register(request: Request) {
   }
 }
 
+async function profile(request: Request) {
+  try {
+    const customerId = verifySession(request);
+    if (!customerId) return json({ error: 'Sessão expirada.' }, 401);
+    const customer = await loadCustomerById(customerId);
+    if (!customer) return json({ error: 'Cliente não encontrado.' }, 404);
+    return json({ customer: publicCustomer(customer) }, 200, { 'Cache-Control': 'no-store' });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível carregar sua conta.' }, 503);
+  }
+}
+
+function validAddress(input: Partial<CustomerAddress>) {
+  return Boolean(
+    String(input.zip || '').replace(/\D/g, '').length === 8 &&
+    String(input.street || '').trim() &&
+    String(input.number || '').trim() &&
+    String(input.district || '').trim() &&
+    String(input.city || '').trim() &&
+    String(input.state || '').trim()
+  );
+}
+
+async function saveAddress(request: Request) {
+  try {
+    const customerId = verifySession(request);
+    if (!customerId) return json({ error: 'Sessão expirada.' }, 401);
+    const body = await readJsonBody(request) as { address?: Partial<CustomerAddress> };
+    const address = body.address || {};
+    if (!validAddress(address)) return json({ error: 'Preencha um endereço completo para salvar.' }, 400);
+    const customer = await loadCustomerById(customerId);
+    if (!customer) return json({ error: 'Cliente não encontrado.' }, 404);
+    const saved = await saveCustomerAddress(customer, address);
+    return json({ saved: true, customer: publicCustomer(saved) });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível salvar o endereço.' }, 503);
+  }
+}
+
+async function deleteAddress(request: Request) {
+  try {
+    const customerId = verifySession(request);
+    if (!customerId) return json({ error: 'Sessão expirada.' }, 401);
+    const body = await readJsonBody(request) as { addressId?: string };
+    const addressId = String(body.addressId || '').trim();
+    if (!addressId) return json({ error: 'Endereço não informado.' }, 400);
+    const customer = await loadCustomerById(customerId);
+    if (!customer) return json({ error: 'Cliente não encontrado.' }, 404);
+    const saved = await removeCustomerAddress(customer, addressId);
+    return json({ deleted: true, customer: publicCustomer(saved) });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível excluir o endereço.' }, 503);
+  }
+}
+
+async function setDefaultAddress(request: Request) {
+  try {
+    const customerId = verifySession(request);
+    if (!customerId) return json({ error: 'Sessão expirada.' }, 401);
+    const body = await readJsonBody(request) as { addressId?: string };
+    const addressId = String(body.addressId || '').trim();
+    if (!addressId) return json({ error: 'Endereço não informado.' }, 400);
+    const customer = await loadCustomerById(customerId);
+    if (!customer) return json({ error: 'Cliente não encontrado.' }, 404);
+    const saved = await setDefaultCustomerAddress(customer, addressId);
+    return json({ updated: true, customer: publicCustomer(saved) });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Não foi possível definir o endereço padrão.' }, 503);
+  }
+}
+
 async function updatePhone(request: Request) {
   try {
     const customerId = verifySession(request);
@@ -176,6 +247,7 @@ function verifySession(request: Request) {
 
 export async function GET(request: Request) {
   if (actionFrom(request) === 'identify') return identify(request);
+  if (actionFrom(request) === 'profile') return profile(request);
   return json({ error: 'Ação de cliente não encontrada.' }, 404);
 }
 export async function POST(request: Request) {
@@ -184,5 +256,8 @@ export async function POST(request: Request) {
   if (action === 'verify-code') return verifyCode(request);
   if (action === 'register') return register(request);
   if (action === 'update-phone') return updatePhone(request);
+  if (action === 'save-address') return saveAddress(request);
+  if (action === 'delete-address') return deleteAddress(request);
+  if (action === 'set-default-address') return setDefaultAddress(request);
   return json({ error: 'Ação de cliente não encontrada.' }, 404);
 }

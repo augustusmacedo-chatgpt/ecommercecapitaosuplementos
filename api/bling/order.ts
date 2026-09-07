@@ -3,10 +3,10 @@ import { get, put } from '../../src/server/storage.js';
 import { json, readJsonBody } from '../../src/server/bling-shared.js';
 import { getBlingAccessToken } from '../../src/server/bling-client.js';
 import { applyEntry, cleanupExpiredReservations, emptyPointsAccount, pointsFromOrderTotal, PointsAccount } from '../../src/server/pontos.js';
-import { loadCustomerById, saveCustomer } from '../../src/server/customer-store.js';
+import { loadCustomerById, saveCustomer, saveCustomerAddress } from '../../src/server/customer-store.js';
 
 type CartItem = { id?: number; name?: string; price?: string; quantity?: number; code?: string };
-type Input = { checkoutId?: string; customer?: { document?: string; name?: string; birthDate?: string; email?: string; phone?: string; zip?: string; street?: string; number?: string; complement?: string; district?: string; city?: string; state?: string; observation?: string }; payment?: string; items?: CartItem[]; loyalty?: { reservationId?: string } };
+type Input = { checkoutId?: string; customer?: { addressId?: string; document?: string; name?: string; birthDate?: string; email?: string; phone?: string; zip?: string; street?: string; number?: string; complement?: string; district?: string; city?: string; state?: string; observation?: string }; payment?: string; items?: CartItem[]; loyalty?: { reservationId?: string } };
 const BLING_BASE = 'https://api.bling.com.br/Api/v3';
 function digits(value: unknown) { return String(value || '').replace(/\D/g, ''); }
 function clean(value: unknown) { return String(value || '').trim(); }
@@ -35,12 +35,34 @@ export async function POST(request: Request) {
     const existing = await loadCreatedOrder(checkoutId); if (existing?.id) return json({ created: true, duplicate: true, orderId: existing.id, orderNumber: existing.numero }, 200);
     const sessionCustomer = await loadCustomerById(customerKey);
     if (!sessionCustomer) return json({ error: 'Cliente não encontrado.' }, 404);
+
+    // O endereço usado no checkout passa a fazer parte da conta do cliente.
+    // Se já veio de um endereço salvo, atualizamos o mesmo registro; se for novo, criamos.
+    const customerWithProfile = await saveCustomer({
+      ...sessionCustomer,
+      name: clean(customer.name),
+      email,
+      phone: digits(customer.phone),
+      birthDate: clean(customer.birthDate) || sessionCustomer.birthDate,
+    });
+    const customerWithAddress = await saveCustomerAddress(customerWithProfile, {
+      id: clean(customer.addressId) || undefined,
+      zip: digits(customer.zip),
+      street: clean(customer.street),
+      number: clean(customer.number),
+      complement: clean(customer.complement),
+      district: clean(customer.district),
+      city: clean(customer.city),
+      state: clean(customer.state),
+      isDefault: !clean(customer.addressId) ? undefined : undefined,
+    });
+    const persistedCustomer = customerWithAddress;
     let loyaltyReservation: { id: string; points: number; value: number } | null = null;
     if (reservationId) { const sessionCustomerKey = verifySession(request); if (!sessionCustomerKey || sessionCustomerKey !== customerKey) return json({ error: 'A sessão de fidelidade não corresponde ao cliente do pedido.' }, 401); const account = cleanupExpiredReservations(await loadPointsAccount(customerKey)); const reservation = (account.reservations || []).find(item => item.id === reservationId && item.checkoutId === checkoutId && item.status === 'reserved'); if (!reservation) return json({ error: 'A reserva de pontos não está disponível ou expirou.' }, 409); loyaltyReservation = { id: reservation.id, points: reservation.points, value: reservation.value }; }
     const token = await getBlingAccessToken(); const headers = { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'enable-jwt': '1' }; const tipoPessoa = 'F';
-    let contactId = Number(sessionCustomer.blingContactId || 0);
+    let contactId = Number(persistedCustomer.blingContactId || 0);
     const contactData = { nome: clean(customer.name), tipoPessoa, email, telefone: clean(customer.phone), endereco: { geral: { endereco: clean(customer.street), numero: clean(customer.number), complemento: clean(customer.complement), bairro: clean(customer.district), municipio: clean(customer.city), uf: clean(customer.state).toUpperCase(), cep: digits(customer.zip) } } };
-    if (contactId) { const updateResponse = await fetch(`${BLING_BASE}/contatos/${contactId}`, { method: 'PUT', headers, body: JSON.stringify(contactData) }); if (!updateResponse.ok && ![400, 404].includes(updateResponse.status)) { const details = await updateResponse.text(); console.warn('Bling contact update rejected; continuing with existing contact:', updateResponse.status, blingError(details)); } } else { const createResponse = await fetch(`${BLING_BASE}/contatos`, { method: 'POST', headers, body: JSON.stringify(contactData) }); if (!createResponse.ok) { const details = await createResponse.text(); return json({ error: `Não foi possível cadastrar o cliente no Bling. ${blingError(details)}`.trim() }, 422); } const created = await createResponse.json() as { data?: { id?: number } }; contactId = Number(created.data?.id || 0); if (contactId) await saveCustomer({ ...sessionCustomer, blingContactId: contactId }); }
+    if (contactId) { const updateResponse = await fetch(`${BLING_BASE}/contatos/${contactId}`, { method: 'PUT', headers, body: JSON.stringify(contactData) }); if (!updateResponse.ok && ![400, 404].includes(updateResponse.status)) { const details = await updateResponse.text(); console.warn('Bling contact update rejected; continuing with existing contact:', updateResponse.status, blingError(details)); } } else { const createResponse = await fetch(`${BLING_BASE}/contatos`, { method: 'POST', headers, body: JSON.stringify(contactData) }); if (!createResponse.ok) { const details = await createResponse.text(); return json({ error: `Não foi possível cadastrar o cliente no Bling. ${blingError(details)}`.trim() }, 422); } const created = await createResponse.json() as { data?: { id?: number } }; contactId = Number(created.data?.id || 0); if (contactId) await saveCustomer({ ...persistedCustomer, blingContactId: contactId }); }
     if (!contactId) return json({ error: 'O Bling não retornou o ID do cliente.' }, 502);
     const normalizedItems = items.map(item => ({ produto: { id: Number(item.id) }, codigo: clean(item.code) || undefined, descricao: clean(item.name) || undefined, unidade: 'UN', quantidade: Math.max(1, Number(item.quantity || 1)), valor: money(item.price), desconto: 0 })).filter(item => Number.isInteger(item.produto.id) && item.produto.id > 0 && item.valor > 0);
     if (!normalizedItems.length) return json({ error: 'Não foi possível identificar os produtos da sacola.' }, 400);
