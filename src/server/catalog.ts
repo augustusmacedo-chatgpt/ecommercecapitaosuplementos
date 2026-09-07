@@ -1,4 +1,12 @@
 export type CatalogImage = { url: string; type: 'original' | 'thumbnail' };
+export type CatalogDeposit = {
+  id?: number;
+  nome?: string;
+  saldo: number;
+  quantidade?: number;
+  saldoVirtual?: number;
+  deposito?: { id?: number; nome?: string };
+};
 
 export type CatalogProduct = {
   id: number;
@@ -28,7 +36,7 @@ export type CatalogProduct = {
   imagemMiniatura?: string;
   categoria: { nome: string };
   situacao: string;
-  estoque: { saldoVirtualTotal: number };
+  estoque: { saldoVirtualTotal: number; depositos: CatalogDeposit[] };
 };
 
 type Candidate = { url?: unknown; type: 'original' | 'thumbnail' };
@@ -79,10 +87,32 @@ export function normalizeCatalogImages(product: any): CatalogImage[] {
   ]);
 }
 
-export function catalogStock(product: any) {
+export function normalizeCatalogDeposits(product: any): CatalogDeposit[] {
   const deposits = product?.estoque?.depositos;
-  if (Array.isArray(deposits) && deposits.length) {
-    return deposits.reduce((sum: number, item: any) => sum + number(item?.saldo ?? item?.quantidade, 0), 0);
+  if (!Array.isArray(deposits)) return [];
+  return deposits.map((item: any) => {
+    const deposit = item?.deposito || item?.local || {};
+    const id = number(deposit?.id ?? item?.id, 0) || undefined;
+    const nome = text(deposit?.nome || item?.nome || item?.name || item?.local?.nome) || undefined;
+    const saldo = number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual, 0);
+    return {
+      ...(id ? { id } : {}),
+      ...(nome ? { nome } : {}),
+      saldo,
+      quantidade: number(item?.quantidade, saldo),
+      saldoVirtual: number(item?.saldoVirtual, saldo),
+      deposito: {
+        ...(id ? { id } : {}),
+        ...(nome ? { nome } : {}),
+      },
+    };
+  });
+}
+
+export function catalogStock(product: any) {
+  const deposits = normalizeCatalogDeposits(product);
+  if (deposits.length) {
+    return deposits.reduce((sum, item) => sum + number(item?.saldo ?? item?.quantidade, 0), 0);
   }
   return number(product?.estoque?.saldoVirtualTotal ?? product?.saldoVirtualTotal, 0);
 }
@@ -91,6 +121,7 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
   const images = normalizeCatalogImages(product);
   const originalImage = images.find(item => item.type === 'original')?.url;
   const thumbnailImage = images.find(item => item.type === 'thumbnail')?.url;
+  const deposits = normalizeCatalogDeposits(product);
   const stock = catalogStock(product);
   const active = text(product?.situacao).toUpperCase() === 'A' || product?.situacao === true || !product?.situacao;
   const priceValue = number(product?.preco, NaN);
@@ -130,7 +161,10 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
     imagemMiniatura: thumbnailImage,
     categoria: { nome: category },
     situacao: active ? 'A' : 'I',
-    estoque: { saldoVirtualTotal: stock },
+    estoque: {
+      saldoVirtualTotal: number(product?.estoque?.saldoVirtualTotal ?? product?.saldoVirtualTotal, stock),
+      depositos,
+    },
   };
 }
 
