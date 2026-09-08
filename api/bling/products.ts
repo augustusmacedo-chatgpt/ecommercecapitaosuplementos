@@ -135,9 +135,15 @@ export async function GET(request: Request) {
         deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || ''
       ).trim();
 
+      // A unidade de negócio da Camapuã é "Matriz", mas o DEPÓSITO real no
+      // Bling é "CAPITÃO SUPLEMENTOS CAMAPUÃ". Primeiro priorizamos o nome
+      // exato do depósito e mantemos os nomes antigos apenas como compatibilidade.
       const matrixDeposit = deposits.find((deposit: any) => {
         const name = normDeposit(depositName(deposit));
-        return name === 'MATRIZ' || name === 'ESTOQUE MATRIZ' || name.includes('MATRIZ');
+        return name === 'CAPITAO SUPLEMENTOS CAMAPUA' || name === 'ESTOQUE MATRIZ' || name === 'MATRIZ';
+      }) || deposits.find((deposit: any) => {
+        const name = normDeposit(depositName(deposit));
+        return name.includes('CAMAPUA') || name.includes('MATRIZ');
       });
       const newfitDeposit = deposits.find((deposit: any) => {
         const name = normDeposit(depositName(deposit));
