@@ -1,4 +1,4 @@
-import { loadStoredData, saveStoredData } from './bling-store.js';
+import { loadStoredData, saveStoredData, type BlingStoredData } from './bling-store.js';
 
 const BLING_TOKEN_URL = 'https://api.bling.com.br/Api/v3/oauth/token';
 const TOKEN_SAFETY_WINDOW_MS = 60_000;
@@ -9,16 +9,16 @@ type BlingTokenResponse = {
   expires_in?: number;
 };
 
-export async function getBlingAccessToken() {
-  const stored = await loadStoredData();
-  if (!stored?.clientId || !stored.clientSecret || !stored.refreshToken) {
-    throw new Error('Conecte o Bling antes de consultar os dados.');
-  }
+let refreshInFlight: Promise<string> | null = null;
 
-  if (stored.accessToken && (stored.accessTokenExpiresAt ?? 0) > Date.now() + TOKEN_SAFETY_WINDOW_MS) {
-    return stored.accessToken;
-  }
+function hasUsableAccessToken(stored: BlingStoredData | null): stored is BlingStoredData & { accessToken: string } {
+  return Boolean(
+    stored?.accessToken
+      && (stored.accessTokenExpiresAt ?? 0) > Date.now() + TOKEN_SAFETY_WINDOW_MS,
+  );
+}
 
+async function refreshAccessToken(stored: BlingStoredData): Promise<string> {
   const basic = btoa(`${stored.clientId}:${stored.clientSecret}`);
   const response = await fetch(BLING_TOKEN_URL, {
     method: 'POST',
@@ -30,13 +30,14 @@ export async function getBlingAccessToken() {
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      refresh_token: stored.refreshToken,
+      refresh_token: stored.refreshToken || '',
     }).toString(),
   });
 
   if (!response.ok) {
-    console.error('Bling refresh token error:', response.status, await response.text());
-    throw new Error('A autorização do Bling expirou. Reconecte o aplicativo para continuar.');
+    const details = await response.text().catch(() => '');
+    console.error('Bling refresh token error:', response.status, details.slice(0, 500));
+    throw new Error('Não foi possível renovar a autorização do Bling.');
   }
 
   const tokens = await response.json() as BlingTokenResponse;
@@ -45,12 +46,68 @@ export async function getBlingAccessToken() {
   }
 
   const expiresIn = Math.max(60, Number(tokens.expires_in ?? 21600));
+  const now = Date.now();
+
   await saveStoredData({
     ...stored,
     accessToken: tokens.access_token,
-    accessTokenExpiresAt: Date.now() + expiresIn * 1000,
+    accessTokenExpiresAt: now + expiresIn * 1000,
     refreshToken: tokens.refresh_token || stored.refreshToken,
+    lastTokenRefreshAt: now,
+    tokenUpdatedAt: now,
   });
 
   return tokens.access_token;
+}
+
+async function renewFromLatestStoredState(): Promise<string> {
+  const stored = await loadStoredData();
+
+  if (!stored?.clientId || !stored.clientSecret || !stored.refreshToken) {
+    throw new Error('Conecte o Bling antes de consultar os dados.');
+  }
+
+  if (hasUsableAccessToken(stored)) return stored.accessToken;
+
+  try {
+    return await refreshAccessToken(stored);
+  } catch (firstError) {
+    // Another request may have renewed the token at the same time. R2 is
+    // strongly consistent after a completed write, so always reload once
+    // before declaring the integration disconnected.
+    const latest = await loadStoredData();
+
+    if (hasUsableAccessToken(latest)) return latest.accessToken;
+
+    if (
+      latest?.clientId
+      && latest.clientSecret
+      && latest.refreshToken
+      && latest.refreshToken !== stored.refreshToken
+    ) {
+      return refreshAccessToken(latest);
+    }
+
+    throw firstError;
+  }
+}
+
+export async function getBlingAccessToken() {
+  const stored = await loadStoredData();
+
+  if (!stored?.clientId || !stored.clientSecret || !stored.refreshToken) {
+    throw new Error('Conecte o Bling antes de consultar os dados.');
+  }
+
+  if (hasUsableAccessToken(stored)) return stored.accessToken;
+
+  // Prevent simultaneous API calls in the same Worker isolate from spending
+  // the same refresh token and overwriting one another's token state.
+  if (!refreshInFlight) {
+    refreshInFlight = renewFromLatestStoredState().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+
+  return refreshInFlight;
 }
