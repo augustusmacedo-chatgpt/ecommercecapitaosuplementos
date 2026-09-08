@@ -82,7 +82,7 @@ const css=`
   user-select:none;
   -webkit-user-drag:none;
 }
-.admin-auth-content{position:relative;z-index:1;width:min(840px,100%);margin:0 auto}
+.admin-auth-content{position:relative;z-index:1;width:min(680px,100%);margin:0 auto}
 .admin-auth-side{
   position:absolute;top:42px;width:120px;color:#c8d6e4;font-size:11px;
   font-weight:700;letter-spacing:7px;line-height:2.25;text-transform:uppercase;
@@ -107,16 +107,16 @@ const css=`
   text-align:center;max-width:650px;
 }
 .admin-auth-card label{
-  display:block;color:#eef3f8;font-size:20px;font-weight:800;
-  margin:22px 0 10px;
+  display:block;color:#eef3f8;font-size:17px;font-weight:800;
+  margin:18px 0 8px;
 }
 .admin-auth-input{position:relative;margin-top:12px}
 .admin-auth-input input{
-  box-sizing:border-box;width:100%;height:82px;
+  box-sizing:border-box;width:100%;height:64px;
   background:linear-gradient(90deg,rgba(13,27,45,.92),rgba(10,19,32,.96));
   border:1px solid rgba(99,179,238,.7);
-  border-radius:18px;color:#fff;padding:0 74px;
-  outline:0;font-size:20px;font-family:Inter,sans-serif;
+  border-radius:15px;color:#fff;padding:0 60px;
+  outline:0;font-size:17px;font-family:Inter,sans-serif;
   transition:.18s ease;
   box-shadow:inset 0 0 30px rgba(39,124,220,.04),0 0 0 1px rgba(78,188,255,.03);
 }
@@ -126,22 +126,22 @@ const css=`
   box-shadow:0 0 0 3px rgba(72,208,255,.1),0 0 28px rgba(33,133,255,.14)
 }
 .admin-auth-input .field-icon{
-  position:absolute;left:26px;top:50%;transform:translateY(-50%);
+  position:absolute;left:20px;top:50%;transform:translateY(-50%);
   color:#c6d9eb;pointer-events:none;
 }
 .admin-auth-input button{
-  position:absolute;right:18px;top:50%;transform:translateY(-50%);
-  width:44px;height:44px;border:0;background:transparent;color:#c6d9eb;
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  width:40px;height:40px;border:0;background:transparent;color:#c6d9eb;
   display:grid;place-items:center;cursor:pointer;
 }
 .admin-auth-submit{
-  width:100%;height:92px;border:1px solid rgba(81,235,255,.95);
-  border-radius:18px;
+  width:100%;height:70px;border:1px solid rgba(81,235,255,.95);
+  border-radius:15px;
   background:linear-gradient(100deg,#1d82ff 0%,#3bcfff 50%,#1d52e8 100%);
   color:#06111e;font-family:Modpot,Inter,sans-serif;font-weight:700;
-  font-size:27px;letter-spacing:3px;
-  display:flex;align-items:center;justify-content:center;gap:22px;
-  margin-top:32px;cursor:pointer;
+  font-size:22px;letter-spacing:2px;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+  margin-top:24px;cursor:pointer;
   box-shadow:0 0 24px rgba(45,206,255,.4),0 16px 40px rgba(21,105,255,.25);
   transition:.18s ease;
 }
