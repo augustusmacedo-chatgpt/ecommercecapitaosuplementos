@@ -135,20 +135,24 @@ export async function GET(request: Request) {
         deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || ''
       ).trim();
 
-      // A unidade de negócio da Camapuã é "Matriz", mas o DEPÓSITO real no
-      // Bling é "CAPITÃO SUPLEMENTOS CAMAPUÃ". Primeiro priorizamos o nome
-      // exato do depósito e mantemos os nomes antigos apenas como compatibilidade.
-      const matrixDeposit = deposits.find((deposit: any) => {
-        const name = normDeposit(depositName(deposit));
-        return name === 'CAPITAO SUPLEMENTOS CAMAPUA' || name === 'ESTOQUE MATRIZ' || name === 'MATRIZ';
-      }) || deposits.find((deposit: any) => {
-        const name = normDeposit(depositName(deposit));
-        return name.includes('CAMAPUA') || name.includes('MATRIZ');
-      });
-      const newfitDeposit = deposits.find((deposit: any) => {
-        const name = normDeposit(depositName(deposit));
-        return name === 'CAPITAO SUPLEMENTOS NEWFIT' || name === 'ESTOQUE NEWFIT' || name.includes('NEWFIT');
-      });
+      // Regra operacional:
+      // - CAMAPUÃ lê o depósito real "CAPITÃO SUPLEMENTOS CAMAPUÃ".
+      // - NEWFIT lê o depósito real "CAPITÃO SUPLEMENTOS NEWFIT".
+      // "Matriz" é a unidade de negócio exibida na abertura do caixa da
+      // Camapuã e não deve substituir o depósito real na leitura de estoque.
+      const findDeposit = (primary: string, legacy: string[]) =>
+        deposits.find((deposit: any) => normDeposit(depositName(deposit)) === primary) ||
+        deposits.find((deposit: any) => legacy.includes(normDeposit(depositName(deposit)))) ||
+        null;
+
+      const camapuaDeposit = findDeposit(
+        'CAPITAO SUPLEMENTOS CAMAPUA',
+        ['ESTOQUE MATRIZ', 'MATRIZ'],
+      );
+      const newfitDeposit = findDeposit(
+        'CAPITAO SUPLEMENTOS NEWFIT',
+        ['ESTOQUE NEWFIT'],
+      );
 
       async function getDepositStock(deposit: any) {
         const depositId = Number(deposit?.id);
@@ -176,23 +180,23 @@ export async function GET(request: Request) {
         return { deposit, byProduct };
       }
 
-      const [matrixStock, newfitStock] = await Promise.all([
-        getDepositStock(matrixDeposit),
+      const [camapuaStock, newfitStock] = await Promise.all([
+        getDepositStock(camapuaDeposit),
         getDepositStock(newfitDeposit),
       ]);
 
       const products = ids.map(productId => {
         const idNumber = Number(productId);
-        const matrixSaldo = matrixStock.byProduct.get(idNumber) ?? 0;
+        const camapuaSaldo = camapuaStock.byProduct.get(idNumber) ?? 0;
         const newfitSaldo = newfitStock.byProduct.get(idNumber) ?? 0;
         const stockDeposits = [
-          matrixDeposit ? {
-            id: Number(matrixDeposit.id) || undefined,
-            nome: depositName(matrixDeposit),
-            saldo: matrixSaldo,
-            quantidade: matrixSaldo,
-            saldoVirtual: matrixSaldo,
-            deposito: { id: Number(matrixDeposit.id) || undefined, nome: depositName(matrixDeposit) },
+          camapuaDeposit ? {
+            id: Number(camapuaDeposit.id) || undefined,
+            nome: depositName(camapuaDeposit),
+            saldo: camapuaSaldo,
+            quantidade: camapuaSaldo,
+            saldoVirtual: camapuaSaldo,
+            deposito: { id: Number(camapuaDeposit.id) || undefined, nome: depositName(camapuaDeposit) },
           } : null,
           newfitDeposit ? {
             id: Number(newfitDeposit.id) || undefined,
@@ -207,7 +211,7 @@ export async function GET(request: Request) {
         return {
           id: idNumber,
           estoque: {
-            saldoVirtualTotal: matrixSaldo + newfitSaldo,
+            saldoVirtualTotal: 0, // o PDV usa somente os saldos por depósito; soma agregada é responsabilidade do site.
             depositos: stockDeposits,
           },
         };
@@ -219,7 +223,7 @@ export async function GET(request: Request) {
         source: 'bling-stock-by-deposit',
         stockSource: 'estoques/saldos/{idDeposito}',
         deposits: {
-          camapua: matrixDeposit ? { id: Number(matrixDeposit.id), nome: depositName(matrixDeposit) } : null,
+          camapua: camapuaDeposit ? { id: Number(camapuaDeposit.id), nome: depositName(camapuaDeposit) } : null,
           newfit: newfitDeposit ? { id: Number(newfitDeposit.id), nome: depositName(newfitDeposit) } : null,
         },
       }, 200, { 'Cache-Control': 'no-store' });
