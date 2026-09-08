@@ -14,7 +14,7 @@ const LOCATIONS: Record<'camapua' | 'newfit', LocationConfig> = {
   camapua: { label: 'CAMAPUÃ', stock: 'CAPITÃO SUPLEMENTOS CAMAPUÃ', payments: [
     ['credit1', 'CARTÃO CRÉDITO 1X', 'GETNET', 'D+2', 'credit'], ['credit2', 'CARTÃO CRÉDITO 2X', 'GETNET', 'D+2', 'credit'], ['credit3', 'CARTÃO CRÉDITO 3X', 'GETNET', 'D+2', 'credit'], ['debit', 'CARTÃO DÉBITO', 'GETNET', 'D+1', 'debit'], ['pix', 'PIX', 'SANTANDER PJ', 'D+0', 'pix'], ['cash', 'DINHEIRO', 'CAMAPUÃ', 'D+0', 'cash'], ['bemol', 'CREDIÁRIO BEMOL', 'BEMOL', 'CONTA ÚNICA', 'bemol']
   ] },
-  newfit: { label: 'NEWFIT', stock: 'ESTOQUE NEWFIT', payments: [
+  newfit: { label: 'NEWFIT', stock: 'CAPITÃO SUPLEMENTOS NEWFIT', payments: [
     ['credit1', 'CARTÃO CRÉDITO 1X', 'CAIXA', 'D+2', 'credit'], ['credit2', 'CARTÃO CRÉDITO 2X', 'CAIXA', 'D+2', 'credit'], ['credit3', 'CARTÃO CRÉDITO 3X', 'CAIXA', 'D+2', 'credit'], ['debit', 'CARTÃO DÉBITO', 'CAIXA', 'D+1', 'debit'], ['pix', 'PIX', 'CAIXA PJ', 'D+0', 'pix'], ['cash', 'DINHEIRO', 'NEWFIT', 'D+0', 'cash'], ['bemol', 'CREDIÁRIO BEMOL', 'BEMOL', 'CONTA ÚNICA', 'bemol']
   ] }
 };
@@ -40,28 +40,38 @@ function locationStock(raw: any, location: 'camapua' | 'newfit') {
   // e faria NEWFIT e CAMAPUÃ exibirem o mesmo saldo.
   if (!Array.isArray(deposits) || !deposits.length) return 0;
 
-  const matches = deposits.filter((item: any) => {
-    const name = normalize(String(
-      item?.deposito?.nome ||
-      item?.deposito?.descricao ||
-      item?.nome ||
-      item?.descricao ||
-      item?.local?.nome ||
-      item?.local?.descricao ||
-      item?.name ||
-      ''
-    ));
-    if (location === 'newfit') {
-      return name === 'capitao suplementos newfit' || name === 'estoque newfit' || name.includes('newfit');
-    }
-    // No Bling, a loja CAPITÃO SUPLEMENTOS CAMAPUÃ continua vinculada ao
-    // depósito interno chamado ESTOQUE MATRIZ.
-    return name === 'matriz' || name === 'estoque matriz' || name === 'capitao suplementos camapua' || name.includes('matriz') || name.includes('camapua');
-  });
+  const nameOf = (item: any) => normalize(String(
+    item?.deposito?.nome ||
+    item?.deposito?.descricao ||
+    item?.nome ||
+    item?.descricao ||
+    item?.local?.nome ||
+    item?.local?.descricao ||
+    item?.name ||
+    ''
+  ));
+  const saldoOf = (item: any) => Number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual ?? 0) || 0;
 
-  return matches.reduce((sum: number, item: any) => sum + Number(item?.saldo ?? item?.quantidade ?? item?.saldoVirtual ?? 0), 0);
+  // Cada loja lê somente o seu depósito real. "Matriz" é unidade de negócio
+  // da abertura do caixa da Camapuã, não é a regra principal de estoque.
+  const primaryName = location === 'camapua'
+    ? 'capitao suplementos camapua'
+    : 'capitao suplementos newfit';
+  const exact = deposits.find((item: any) => nameOf(item) === primaryName);
+  if (exact) return saldoOf(exact);
+
+  // Compatibilidade apenas para cadastros antigos do Bling: nunca somar
+  // depósitos alternativos, para não duplicar saldo entre lojas.
+  const legacy = location === 'camapua'
+    ? deposits.find((item: any) => {
+        const name = nameOf(item);
+        return name === 'estoque matriz' || name === 'matriz';
+      })
+    : deposits.find((item: any) => nameOf(item) === 'estoque newfit');
+
+  return legacy ? saldoOf(legacy) : 0;
 }
-const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v2';
+const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v3';
 function readCatalogCache(): CatalogCache | null {
   try {
     const raw = localStorage.getItem(PDV_CATALOG_CACHE_KEY);
@@ -316,7 +326,7 @@ export default function Pdv({ initialLocation = 'camapua', lockLocation = false 
     <header className="pdv-top">
       <div className="pdv-brand"><img className="pdv-logo" src="/Logo_Capitao_Esportivo.png" alt="Capitão Suplementos" /><div><small>PDV • OPERAÇÃO</small><strong>CAPITÃO SUPLEMENTOS</strong></div></div>
       <div className="pdv-top-meta">
-        <div className="pdv-context"><div><label>LOJA / ESTOQUE</label><select value={location} disabled={lockLocation} onChange={e => setLocation(e.target.value as LocationKey)}><option value="camapua">CAMAPUÃ · MATRIZ</option><option value="newfit">NEWFIT · DEPÓSITO NEWFIT</option></select></div></div>
+        <div className="pdv-context"><div><label>LOJA / ESTOQUE</label><select value={location} disabled={lockLocation} onChange={e => setLocation(e.target.value as LocationKey)}><option value="camapua">CAMAPUÃ · UNIDADE MATRIZ</option><option value="newfit">NEWFIT · UNIDADE NEWFIT</option></select></div></div>
         <div className="pdv-context"><div><label>VENDEDOR</label><select className="seller-select" value={seller} onChange={e => setSeller(e.target.value)}>{SELLERS.map(name => <option key={name}>{name}</option>)}</select></div></div>
         <button className="pdv-menu-btn" onClick={() => setMenuOpen(v => !v)} aria-label="Abrir menu"><Menu size={19}/></button>
       </div>
