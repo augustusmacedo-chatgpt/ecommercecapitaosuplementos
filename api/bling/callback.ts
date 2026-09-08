@@ -32,7 +32,6 @@ export async function GET(request: Request) {
     }
 
     const { oauthState: _oauthState, oauthStateExpiresAt: _oauthStateExpiresAt, ...configWithoutState } = config;
-    await saveStoredData(configWithoutState);
 
     const basic = btoa(`${config.clientId}:${config.clientSecret}`);
     const tokenResponse = await fetch('https://api.bling.com.br/Api/v3/oauth/token', {
