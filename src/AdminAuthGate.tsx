@@ -68,64 +68,20 @@ const css=`
   display:flex;
   align-items:center;
   justify-content:center;
-  flex-direction:column;
-  gap:8px;
-  margin:0 0 38px;
+  margin:0 0 44px;
   position:relative;
   z-index:1;
 }
-.admin-auth-brand:before{
-  content:"";position:absolute;left:0;top:4px;width:118px;height:1px;
-  background:linear-gradient(90deg,transparent,#42bfff);
-  box-shadow:0 0 10px rgba(66,191,255,.55);
-}
-.admin-auth-brand:after{
-  content:"";position:absolute;right:0;top:4px;width:118px;height:1px;
-  background:linear-gradient(90deg,#42bfff,transparent);
-  box-shadow:0 0 10px rgba(66,191,255,.55);
-}
-.admin-auth-emblem{position:relative;width:190px;height:150px;margin-top:4px}
-.admin-auth-emblem .nie-left,
-.admin-auth-emblem .nie-right{
-  position:absolute;top:22px;width:70px;height:104px;
-  background:linear-gradient(145deg,#5bd6ff 0%,#1678ff 55%,#183bcb 100%);
-  filter:drop-shadow(0 8px 18px rgba(26,120,255,.22));
-}
-.admin-auth-emblem .nie-left{left:22px;clip-path:polygon(0 22%,48% 0,100% 0,48% 100%,0 77%)}
-.admin-auth-emblem .nie-right{right:22px;clip-path:polygon(0 0,52% 0,100% 24%,100% 100%,51% 78%,0 100%);background:linear-gradient(180deg,#fff 0%,#bfeeff 45%,#1d91ff 100%)}
-.admin-auth-emblem .nie-cut{position:absolute;left:70px;top:22px;width:48px;height:105px;background:#06101d;clip-path:polygon(0 18%,36% 0,100% 0,64% 100%,0 82%)}
-.admin-auth-emblem .nie-star{position:absolute;right:26px;top:0;color:#5fdcff;font-size:58px;line-height:1;text-shadow:0 0 22px rgba(56,179,255,.95)}
-.admin-auth-wordmark{
-  font-family:Modpot,Inter,sans-serif;
-  font-size:78px;
-  font-weight:700;
-  letter-spacing:5px;
-  line-height:.9;
-  background:linear-gradient(90deg,#f7fbff 0%,#d8e9ff 46%,#1e81ff 63%,#248fff 100%);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-  text-shadow:0 0 20px rgba(60,146,255,.12);
-}
-.admin-auth-wordmark small{
+.admin-auth-logo{
   display:block;
-  margin-top:14px;
-  font-family:Inter,system-ui;
-  font-size:10px;
-  font-weight:800;
-  letter-spacing:8px;
-  color:#d7e1eb;
-  text-align:center;
-  white-space:nowrap;
+  width:min(610px,82vw);
+  height:auto;
+  max-height:330px;
+  object-fit:contain;
+  filter:drop-shadow(0 14px 32px rgba(20,115,255,.18));
+  user-select:none;
+  -webkit-user-drag:none;
 }
-.admin-auth-motto{
-  display:flex;align-items:center;justify-content:center;gap:52px;
-  margin-top:25px;
-  color:#5fc9ff;
-  font-size:13px;font-weight:700;letter-spacing:10px;
-}
-.admin-auth-motto:before,.admin-auth-motto:after{
-  content:"";width:78px;height:1px;background:linear-gradient(90deg,#3aaeff,transparent);
-}
-.admin-auth-motto:after{background:linear-gradient(90deg,transparent,#3aaeff)}
 .admin-auth-content{position:relative;z-index:1;width:min(840px,100%);margin:0 auto}
 .admin-auth-side{
   position:absolute;top:42px;width:120px;color:#c8d6e4;font-size:11px;
@@ -227,11 +183,7 @@ const css=`
 @media(max-width:620px){
   .admin-auth-shell{padding:10px;align-items:flex-start}
   .admin-auth-card{min-height:calc(100vh - 20px);padding:28px 22px 145px;border-radius:22px}
-  .admin-auth-emblem{transform:scale(.82);margin:-10px 0 -14px}
-  .admin-auth-wordmark{font-size:44px;letter-spacing:2px}
-  .admin-auth-wordmark small{font-size:7px;letter-spacing:4px}
-  .admin-auth-motto{font-size:9px;letter-spacing:5px;gap:16px}
-  .admin-auth-motto:before,.admin-auth-motto:after{width:45px}
+  .admin-auth-logo{width:min(420px,94vw);max-height:250px}
   .panel-label{font-size:10px;letter-spacing:7px}
   .admin-auth-card h1{font-size:36px}
   .admin-auth-card p{font-size:15px}
@@ -245,11 +197,7 @@ const css=`
 
 function Brand(){
   return <div className="admin-auth-brand">
-    <div className="admin-auth-emblem" aria-hidden="true">
-      <span className="nie-left"/><span className="nie-right"/><span className="nie-cut"/><span className="nie-star">✦</span>
-    </div>
-    <div className="admin-auth-wordmark">NIEGPT<small>NÚCLEO DE INTELIGÊNCIA E ECOSSISTEMA</small></div>
-    <div className="admin-auth-motto">IDEIAS EM REALIDADE</div>
+    <img className="admin-auth-logo" src="/logo-niegpt.png" alt="NIEGPT — Núcleo de Inteligência e Ecossistema" />
   </div>
 }
 
