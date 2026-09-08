@@ -50,7 +50,6 @@ export default function AdminUsers() {
     setLoading(true); setError('');
     try {
       const data = await api('users'); setUsers(data.users || []); setNeedsBootstrap(!(data.users || []).length);
-      await loadSellers();
     } catch (e) {
       const text = e instanceof Error ? e.message : 'Não foi possível carregar usuários.';
       setError(text); setNeedsBootstrap(text.includes('Acesso administrativo') || text.includes('persistente'));
@@ -90,7 +89,7 @@ export default function AdminUsers() {
     <div className="bling-config-heading">
       <div className="panel-icon"><ShieldCheck size={20} /></div>
       <div><span className="panel-label">PDV • ACESSOS</span><h2>Usuários e vendedores</h2><p>Usuários do PDV são independentes da senha do Bling e podem ser vinculados a um vendedor oficial do ERP.</p></div>
-      <button className="admin-primary" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button>
+      <div style={{ display: 'flex', gap: 8 }}><button className="admin-primary" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar usuários</button><button className="admin-primary" onClick={loadSellers} disabled={sellersLoading}><RefreshCw size={15} className={sellersLoading ? 'spin' : ''} /> Carregar vendedores do Bling</button></div>
     </div>
 
     {needsBootstrap && <div style={{ marginTop: 16, padding: 16, border: '1px solid #d8c49a', borderRadius: 14, background: '#fffaf0' }}><strong>Primeiro acesso administrativo</strong><p style={{ margin: '6px 0 0', color: '#666' }}>Crie o administrador inicial. Depois dele, somente administradores poderão cadastrar e alterar usuários.</p></div>}
@@ -108,7 +107,7 @@ export default function AdminUsers() {
           {!needsBootstrap && <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value as 'ADMIN' | 'OPERATOR' })}><option value="OPERATOR">OPERADOR</option><option value="ADMIN">ADMINISTRADOR</option></select>}
           {!needsBootstrap && <>
             <select value={form.blingSellerId} onChange={e => chooseSeller(e.target.value)} disabled={sellersLoading}>
-              <option value="">{sellersLoading ? 'Carregando vendedores do Bling...' : 'Vincular vendedor do Bling'}</option>
+              <option value="">{sellersLoading ? 'Carregando vendedores do Bling...' : sellers.length ? 'Vincular vendedor do Bling' : 'Carregue os vendedores do Bling quando precisar'}</option>
               {sellers.map(seller => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
             </select>
             {sellersError && <small style={{ color: '#b45309', fontWeight: 700 }}>{sellersError}</small>}
