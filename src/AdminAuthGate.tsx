@@ -1,46 +1,265 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Eye, EyeOff, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 import Admin from './Admin';
 
 type User={id:string;name:string;username:string;email:string;role:'ADMIN'|'OPERATOR'};
 type Mode='login'|'recover'|'reset'|'bootstrap';
 
 const css=`
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
-:root{--nie-blue:#2189ff;--nie-cyan:#4bc8ff;--nie-ice:#d8f2ff}
-.admin-auth-shell{min-height:100vh;background:radial-gradient(circle at 50% 0%,#082243 0,#07111f 38%,#03080f 100%);color:#f4f8ff;display:grid;place-items:center;padding:24px;font-family:Inter,ui-sans-serif,system-ui;position:relative;overflow:hidden}
-.admin-auth-shell:before,.admin-auth-shell:after{content:"";position:fixed;pointer-events:none;inset:auto}
-.admin-auth-shell:before{width:760px;height:760px;border-radius:50%;top:-470px;left:50%;transform:translateX(-50%);background:radial-gradient(circle,#178cff22 0,#178cff08 42%,transparent 72%)}
-.admin-auth-shell:after{width:100%;height:1px;bottom:10%;left:0;background:linear-gradient(90deg,transparent,#178cff66,transparent);box-shadow:0 0 30px #178cff55}
-.admin-auth-card{width:min(480px,100%);background:linear-gradient(180deg,#0b121ce8,#080d15f2);border:1px solid #1a3854;border-radius:24px;padding:38px;box-shadow:0 30px 100px #000c,0 0 70px #137ce015;position:relative;z-index:1}
-.admin-auth-brand{display:flex;align-items:center;justify-content:center;gap:13px;margin:0 0 30px;color:#e9f5ff}
-.admin-auth-symbol{width:58px;height:58px;position:relative;display:grid;place-items:center}
-.admin-auth-symbol:before{content:"N";font-family:Orbitron,Inter,sans-serif;font-size:50px;font-weight:900;line-height:1;background:linear-gradient(135deg,#55d8ff 0%,#2086ff 52%,#6a63ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 28px #188dff33}
-.admin-auth-symbol:after{content:"✦";position:absolute;right:-6px;top:-8px;color:#63d8ff;font-size:22px;text-shadow:0 0 18px #24a8ff}
-.admin-auth-wordmark{font-family:Orbitron,Inter,sans-serif;font-size:26px;font-weight:900;letter-spacing:3px;line-height:1}
-.admin-auth-wordmark small{display:block;font-family:Inter,system-ui;font-size:7px;letter-spacing:3.2px;font-weight:800;color:#74bce7;margin-top:7px;white-space:nowrap}
-.admin-auth-card h1{font-size:31px;line-height:1.12;margin:9px 0 11px;font-family:Orbitron,Inter,sans-serif;font-weight:800;letter-spacing:-.8px}
-.admin-auth-card p{margin:0 0 24px;color:#9eafc0;font-size:13px;line-height:1.7}
-.admin-auth-card label{display:block;color:#8da2b6;font-size:10px;font-weight:900;letter-spacing:1px;margin:14px 0}
-.admin-auth-input{position:relative;margin-top:7px}
-.admin-auth-input input{box-sizing:border-box;width:100%;height:50px;background:#0a111a;border:1px solid #20374b;border-radius:12px;color:#fff;padding:0 14px;outline:0;font-size:14px;transition:.18s ease}
-.admin-auth-input input:focus{border-color:#2189ff;box-shadow:0 0 0 3px #2189ff1f,0 0 22px #2189ff0f}
-.admin-auth-input button{position:absolute;right:8px;top:7px;width:34px;height:34px;border:0;background:transparent;color:#71899d;display:grid;place-items:center;cursor:pointer}
-.admin-auth-submit{width:100%;height:50px;border:1px solid #45baff66;border-radius:12px;background:linear-gradient(135deg,#117de9,#38bfff);color:#03101d;font-family:Orbitron,Inter,sans-serif;font-weight:900;font-size:10px;letter-spacing:1.3px;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:22px;cursor:pointer;box-shadow:0 14px 35px #0e8bff25}
+@font-face{font-family:Modpot;src:url('/fonts/modpot-login.otf') format('opentype');font-display:swap}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root{--nie-blue:#1f7dff;--nie-cyan:#4bd9ff;--nie-ice:#eaf7ff;--nie-panel:#07101d}
+*{box-sizing:border-box}
+.admin-auth-shell{
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 50% 10%,rgba(25,116,255,.16),transparent 29%),
+    radial-gradient(circle at 0 100%,rgba(0,93,255,.13),transparent 34%),
+    linear-gradient(135deg,#030814 0%,#06101d 48%,#020710 100%);
+  color:#f4f8ff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  font-family:Inter,ui-sans-serif,system-ui;
+  position:relative;
+  overflow:hidden;
+}
+.admin-auth-shell:before,
+.admin-auth-shell:after{content:"";position:fixed;pointer-events:none}
+.admin-auth-shell:before{
+  width:1100px;height:1100px;left:-740px;bottom:-780px;
+  border:1px solid rgba(31,125,255,.55);
+  transform:rotate(-42deg);
+  box-shadow:0 0 45px rgba(26,108,255,.35),inset 0 0 45px rgba(26,108,255,.08);
+}
+.admin-auth-shell:after{
+  width:900px;height:900px;right:-720px;bottom:-650px;
+  border:1px solid rgba(31,125,255,.55);
+  transform:rotate(42deg);
+  box-shadow:0 0 45px rgba(26,108,255,.35);
+}
+.admin-auth-card{
+  width:min(1020px,100%);
+  min-height:min(1320px,calc(100vh - 40px));
+  background:
+    linear-gradient(180deg,rgba(6,15,28,.94),rgba(2,9,17,.97)),
+    radial-gradient(circle at 50% 0%,rgba(30,123,255,.09),transparent 42%);
+  border:1px solid rgba(79,185,255,.8);
+  border-radius:30px;
+  padding:40px 86px 34px;
+  box-shadow:
+    0 0 0 1px rgba(116,214,255,.08) inset,
+    0 0 55px rgba(24,117,255,.18),
+    0 35px 110px rgba(0,0,0,.55);
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.admin-auth-card:before{
+  content:"";position:absolute;inset:0;border-radius:30px;pointer-events:none;
+  background:linear-gradient(115deg,rgba(74,185,255,.07),transparent 20%,transparent 80%,rgba(33,115,255,.06));
+}
+.admin-auth-brand{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:8px;
+  margin:0 0 38px;
+  position:relative;
+  z-index:1;
+}
+.admin-auth-brand:before{
+  content:"";position:absolute;left:0;top:4px;width:118px;height:1px;
+  background:linear-gradient(90deg,transparent,#42bfff);
+  box-shadow:0 0 10px rgba(66,191,255,.55);
+}
+.admin-auth-brand:after{
+  content:"";position:absolute;right:0;top:4px;width:118px;height:1px;
+  background:linear-gradient(90deg,#42bfff,transparent);
+  box-shadow:0 0 10px rgba(66,191,255,.55);
+}
+.admin-auth-emblem{position:relative;width:190px;height:150px;margin-top:4px}
+.admin-auth-emblem .nie-left,
+.admin-auth-emblem .nie-right{
+  position:absolute;top:22px;width:70px;height:104px;
+  background:linear-gradient(145deg,#5bd6ff 0%,#1678ff 55%,#183bcb 100%);
+  filter:drop-shadow(0 8px 18px rgba(26,120,255,.22));
+}
+.admin-auth-emblem .nie-left{left:22px;clip-path:polygon(0 22%,48% 0,100% 0,48% 100%,0 77%)}
+.admin-auth-emblem .nie-right{right:22px;clip-path:polygon(0 0,52% 0,100% 24%,100% 100%,51% 78%,0 100%);background:linear-gradient(180deg,#fff 0%,#bfeeff 45%,#1d91ff 100%)}
+.admin-auth-emblem .nie-cut{position:absolute;left:70px;top:22px;width:48px;height:105px;background:#06101d;clip-path:polygon(0 18%,36% 0,100% 0,64% 100%,0 82%)}
+.admin-auth-emblem .nie-star{position:absolute;right:26px;top:0;color:#5fdcff;font-size:58px;line-height:1;text-shadow:0 0 22px rgba(56,179,255,.95)}
+.admin-auth-wordmark{
+  font-family:Modpot,Inter,sans-serif;
+  font-size:78px;
+  font-weight:700;
+  letter-spacing:5px;
+  line-height:.9;
+  background:linear-gradient(90deg,#f7fbff 0%,#d8e9ff 46%,#1e81ff 63%,#248fff 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 20px rgba(60,146,255,.12);
+}
+.admin-auth-wordmark small{
+  display:block;
+  margin-top:14px;
+  font-family:Inter,system-ui;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:8px;
+  color:#d7e1eb;
+  text-align:center;
+  white-space:nowrap;
+}
+.admin-auth-motto{
+  display:flex;align-items:center;justify-content:center;gap:52px;
+  margin-top:25px;
+  color:#5fc9ff;
+  font-size:13px;font-weight:700;letter-spacing:10px;
+}
+.admin-auth-motto:before,.admin-auth-motto:after{
+  content:"";width:78px;height:1px;background:linear-gradient(90deg,#3aaeff,transparent);
+}
+.admin-auth-motto:after{background:linear-gradient(90deg,transparent,#3aaeff)}
+.admin-auth-content{position:relative;z-index:1;width:min(840px,100%);margin:0 auto}
+.admin-auth-side{
+  position:absolute;top:42px;width:120px;color:#c8d6e4;font-size:11px;
+  font-weight:700;letter-spacing:7px;line-height:2.25;text-transform:uppercase;
+}
+.admin-auth-side.left{left:34px}.admin-auth-side.right{right:34px;text-align:right}
+.admin-auth-side:after{
+  content:"";display:block;width:50px;height:2px;background:#47c4ff;margin-top:13px;
+  box-shadow:0 0 12px rgba(55,181,255,.7)
+}
+.admin-auth-side.right:after{margin-left:auto}
+.panel-label{
+  display:block;color:#5ec8ff;font-size:15px;font-weight:800;letter-spacing:13px;
+  text-align:center;margin:0 0 18px;text-transform:uppercase;
+}
+.admin-auth-card h1{
+  font-family:Modpot,Inter,sans-serif;
+  font-size:52px;line-height:1;margin:0 0 18px;
+  text-align:center;font-weight:700;letter-spacing:1px;color:#f5f7fa;
+}
+.admin-auth-card p{
+  margin:0 auto 30px;color:#c1cbd7;font-size:18px;line-height:1.55;
+  text-align:center;max-width:650px;
+}
+.admin-auth-card label{
+  display:block;color:#eef3f8;font-size:20px;font-weight:800;
+  margin:22px 0 10px;
+}
+.admin-auth-input{position:relative;margin-top:12px}
+.admin-auth-input input{
+  box-sizing:border-box;width:100%;height:82px;
+  background:linear-gradient(90deg,rgba(13,27,45,.92),rgba(10,19,32,.96));
+  border:1px solid rgba(99,179,238,.7);
+  border-radius:18px;color:#fff;padding:0 74px;
+  outline:0;font-size:20px;font-family:Inter,sans-serif;
+  transition:.18s ease;
+  box-shadow:inset 0 0 30px rgba(39,124,220,.04),0 0 0 1px rgba(78,188,255,.03);
+}
+.admin-auth-input input::placeholder{color:#8a9db5}
+.admin-auth-input input:focus{
+  border-color:#48d0ff;
+  box-shadow:0 0 0 3px rgba(72,208,255,.1),0 0 28px rgba(33,133,255,.14)
+}
+.admin-auth-input .field-icon{
+  position:absolute;left:26px;top:50%;transform:translateY(-50%);
+  color:#c6d9eb;pointer-events:none;
+}
+.admin-auth-input button{
+  position:absolute;right:18px;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;border:0;background:transparent;color:#c6d9eb;
+  display:grid;place-items:center;cursor:pointer;
+}
+.admin-auth-submit{
+  width:100%;height:92px;border:1px solid rgba(81,235,255,.95);
+  border-radius:18px;
+  background:linear-gradient(100deg,#1d82ff 0%,#3bcfff 50%,#1d52e8 100%);
+  color:#06111e;font-family:Modpot,Inter,sans-serif;font-weight:700;
+  font-size:27px;letter-spacing:3px;
+  display:flex;align-items:center;justify-content:center;gap:22px;
+  margin-top:32px;cursor:pointer;
+  box-shadow:0 0 24px rgba(45,206,255,.4),0 16px 40px rgba(21,105,255,.25);
+  transition:.18s ease;
+}
 .admin-auth-submit:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .admin-auth-submit:disabled{opacity:.55;cursor:not-allowed;transform:none}
-.admin-auth-error,.admin-auth-success{padding:12px 13px;border-radius:11px;font-size:11px;line-height:1.5;margin:14px 0}
-.admin-auth-error{background:#291719;border:1px solid #6e373d;color:#f0b1b7}.admin-auth-success{background:#10251e;border:1px solid #275d50;color:#aee7cf}
-.admin-auth-link{display:block;text-align:center;margin:14px auto 0;border:0;background:transparent;color:#66bfff;font-size:10px;font-weight:900;letter-spacing:.7px;cursor:pointer}
-.admin-auth-link:hover{color:#a7e5ff}
-.admin-auth-muted{color:#62778a!important;font-size:10px!important;text-align:center;margin-top:22px!important}
+.admin-auth-error,.admin-auth-success{
+  padding:14px 16px;border-radius:13px;font-size:13px;line-height:1.5;margin:16px 0;text-align:center
+}
+.admin-auth-error{background:#291719;border:1px solid #6e373d;color:#f0b1b7}
+.admin-auth-success{background:#10251e;border:1px solid #275d50;color:#aee7cf}
+.admin-auth-link{
+  display:block;text-align:center;margin:28px auto 0;border:0;background:transparent;
+  color:#68c9ff;font-size:17px;font-weight:800;letter-spacing:2px;cursor:pointer;
+}
+.admin-auth-link:hover{color:#b6edff}
+.admin-auth-muted{
+  color:#9baabd!important;font-size:12px!important;text-align:center;
+  margin:28px auto 0!important;letter-spacing:.3px;
+}
+.admin-auth-divider{height:1px;width:48%;margin:28px auto 0;background:linear-gradient(90deg,transparent,#2d78b5,transparent)}
+.admin-auth-footer{
+  position:absolute;left:38px;right:38px;bottom:30px;z-index:1;
+  display:grid;grid-template-columns:1fr 2fr 1fr;gap:20px;align-items:end;
+  color:#aeb9c7;text-transform:uppercase;
+}
+.admin-auth-footer div{font-size:10px;font-weight:700;letter-spacing:5px;line-height:1.7}
+.admin-auth-footer div:nth-child(2){text-align:center}.admin-auth-footer div:nth-child(3){text-align:right}
+.admin-auth-footer .foot-line{display:block;width:100%;height:1px;background:linear-gradient(90deg,#248fe0,transparent);margin-bottom:12px}
+.admin-auth-footer div:nth-child(2) .foot-line{background:linear-gradient(90deg,transparent,#286da4,transparent)}
+.admin-auth-footer div:nth-child(3) .foot-line{background:linear-gradient(90deg,transparent,#248fe0)}
 .admin-auth-session{position:fixed;right:22px;top:18px;z-index:100;border:1px solid #1f425f;background:#09111be8;color:#d7eaff;border-radius:999px;padding:9px 11px;font-size:10px;display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px #0008}
 .admin-auth-session button{border:0;background:transparent;color:#58bfff;display:grid;place-items:center;cursor:pointer;padding:2px}
-.panel-label{display:block;color:#58bfff;font-size:9px;font-weight:900;letter-spacing:2.6px;margin-bottom:10px}
-@media(max-width:560px){.admin-auth-shell{padding:16px}.admin-auth-card{padding:28px 22px;border-radius:20px}.admin-auth-card h1{font-size:25px}.admin-auth-wordmark{font-size:23px}}
+
+@media(max-width:900px){
+  .admin-auth-card{padding:34px 48px 130px}
+  .admin-auth-side{display:none}
+  .admin-auth-wordmark{font-size:62px}
+}
+@media(max-width:620px){
+  .admin-auth-shell{padding:10px;align-items:flex-start}
+  .admin-auth-card{min-height:calc(100vh - 20px);padding:28px 22px 145px;border-radius:22px}
+  .admin-auth-emblem{transform:scale(.82);margin:-10px 0 -14px}
+  .admin-auth-wordmark{font-size:44px;letter-spacing:2px}
+  .admin-auth-wordmark small{font-size:7px;letter-spacing:4px}
+  .admin-auth-motto{font-size:9px;letter-spacing:5px;gap:16px}
+  .admin-auth-motto:before,.admin-auth-motto:after{width:45px}
+  .panel-label{font-size:10px;letter-spacing:7px}
+  .admin-auth-card h1{font-size:36px}
+  .admin-auth-card p{font-size:15px}
+  .admin-auth-card label{font-size:16px}
+  .admin-auth-input input{height:66px;border-radius:15px;font-size:16px;padding-left:62px}
+  .admin-auth-submit{height:72px;font-size:20px}
+  .admin-auth-footer{left:22px;right:22px;bottom:22px}
+  .admin-auth-footer div{font-size:7px;letter-spacing:2px}
+}
 `;
 
-function Brand(){return <div className="admin-auth-brand"><div className="admin-auth-symbol"/><div className="admin-auth-wordmark">NIEGPT<small>NÚCLEO DE INTELIGÊNCIA E ECOSSISTEMA</small></div></div>}
+function Brand(){
+  return <div className="admin-auth-brand">
+    <div className="admin-auth-emblem" aria-hidden="true">
+      <span className="nie-left"/><span className="nie-right"/><span className="nie-cut"/><span className="nie-star">✦</span>
+    </div>
+    <div className="admin-auth-wordmark">NIEGPT<small>NÚCLEO DE INTELIGÊNCIA E ECOSSISTEMA</small></div>
+    <div className="admin-auth-motto">IDEIAS EM REALIDADE</div>
+  </div>
+}
+
+function Footer(){
+  return <footer className="admin-auth-footer">
+    <div><span className="foot-line"/>NIEGPT<br/>V1.0</div>
+    <div><span className="foot-line"/>UM SISTEMA.<br/>INFINITAS POSSIBILIDADES.</div>
+    <div><span className="foot-line"/>INTELIGÊNCIA<br/>INOVAÇÃO<br/>EVOLUÇÃO</div>
+  </footer>
+}
 
 async function call(resource:string,body?:any){
  const r=await fetch('/api/bling/pdv-report?resource='+resource,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -88,22 +307,36 @@ export default function AdminAuthGate(){
  }
  async function logout(){try{await call('logout')}finally{setUser(null);setIdentifier('');setPassword('');setMode('login')}}
 
- if(loading)return <><style>{css}</style><main className="admin-auth-shell"><div className="admin-auth-card"><Brand/><p>Verificando acesso ao núcleo...</p></div></main></>;
+ const sideLeft=<aside className="admin-auth-side left">TECNOLOGIA<br/>ESTRATÉGIA<br/>PESSOAS<br/>RESULTADOS</aside>;
+ const sideRight=<aside className="admin-auth-side right">CONECTAR<br/>ORGANIZAR<br/>SIMPLIFICAR<br/>ESCALAR</aside>;
+
+ if(loading)return <><style>{css}</style><main className="admin-auth-shell"><section className="admin-auth-card">{sideLeft}{sideRight}<Brand/><div className="admin-auth-content"><p>Verificando acesso ao sistema...</p></div><Footer/></section></main></>;
 
  if(user?.role==='ADMIN')return <><style>{css}</style><Admin/><div className="admin-auth-session"><ShieldCheck size={14}/> {user.name}<button onClick={logout} title="Sair da administração"><LogOut size={14}/></button></div></>;
 
- if(user&&user.role!=='ADMIN')return <><style>{css}</style><main className="admin-auth-shell"><div className="admin-auth-card"><Brand/><span className="panel-label">ACESSO RESTRITO</span><h1>Acesso restrito</h1><p>Este usuário possui acesso operacional, mas não possui permissão para acessar o núcleo administrativo.</p><div className="admin-auth-error">Use uma conta com perfil ADMINISTRADOR para continuar.</div><button className="admin-auth-submit" onClick={logout}>SAIR <LogOut size={16}/></button></div></main></>;
+ if(user&&user.role!=='ADMIN')return <><style>{css}</style><main className="admin-auth-shell"><section className="admin-auth-card">{sideLeft}{sideRight}<Brand/><div className="admin-auth-content"><span className="panel-label">ÁREA RESTRITA</span><h1>Acesso restrito</h1><p>Este usuário possui acesso operacional, mas não possui permissão para acessar o núcleo administrativo.</p><div className="admin-auth-error">Use uma conta com perfil ADMINISTRADOR para continuar.</div><button className="admin-auth-submit" onClick={logout}>SAIR <LogOut size={20}/></button></div><Footer/></section></main></>;
 
  const title=mode==='login'?'Entrar na administração':mode==='recover'?'Recuperar acesso':mode==='reset'?'Criar nova senha':'Criar administrador inicial';
- const subtitle=mode==='login'?'Acesso administrativo ao núcleo do NIEGPT. Use seu usuário ou e-mail administrativo.':mode==='recover'?'Informe o e-mail do usuário para receber as instruções de recuperação.':mode==='reset'?'Defina uma nova senha segura para sua conta administrativa.':'Use esta opção apenas para configurar o primeiro administrador do sistema.';
+ const subtitle=mode==='login'?'Acesso restrito ao sistema NIEGPT. Use seu usuário ou e-mail administrativo.':mode==='recover'?'Informe o e-mail do usuário para receber as instruções de recuperação.':mode==='reset'?'Defina uma nova senha segura para sua conta administrativa.':'Use esta opção apenas para configurar o primeiro administrador do sistema.';
 
- return <><style>{css}</style><main className="admin-auth-shell"><form className="admin-auth-card" onSubmit={mode==='login'?login:mode==='recover'?recover:mode==='reset'?reset:bootstrap}><Brand/><span className="panel-label">ACESSO AO NÚCLEO</span><h1>{title}</h1><p>{subtitle}</p>{error&&<div className="admin-auth-error">⚠️ {error}</div>}{success&&<div className="admin-auth-success">✓ {success}</div>}
- {mode==='bootstrap'&&<><label>Nome completo<div className="admin-auth-input"><input autoFocus value={name} onChange={e=>setName(e.target.value)} required/></div></label><label>Usuário<div className="admin-auth-input"><input value={username} onChange={e=>setUsername(e.target.value)} required autoComplete="username"/></div></label><label>E-mail<div className="admin-auth-input"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label></>}
- {(mode==='login'||mode==='recover')&&<label>{mode==='login'?'E-mail ou usuário':'E-mail'}<div className="admin-auth-input"><input autoFocus value={identifier} onChange={e=>setIdentifier(e.target.value)} required autoComplete={mode==='login'?'username':'email'}/></div></label>}
- {mode!=='recover'&&<label>{mode==='reset'?'Nova senha':'Senha'}<div className="admin-auth-input"><input type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required minLength={8} autoComplete={mode==='login'?'current-password':'new-password'}/><button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Ocultar senha':'Mostrar senha'}>{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label>}
- <button className="admin-auth-submit" disabled={loading}>{mode==='login'?'ENTRAR NO NÚCLEO':mode==='recover'?'ENVIAR INSTRUÇÕES':mode==='reset'?'SALVAR NOVA SENHA':'CRIAR ADMINISTRADOR'} <ArrowRight size={17}/></button>
- {mode==='login'&&<><button type="button" className="admin-auth-link" onClick={()=>{setMode('recover');setError('');setSuccess('')}}>ESQUECI A SENHA</button><button type="button" className="admin-auth-link" onClick={()=>{setMode('bootstrap');setError('');setSuccess('')}}>PRIMEIRO ACESSO / CRIAR ADMINISTRADOR</button></>}
+ return <><style>{css}</style><main className="admin-auth-shell"><form className="admin-auth-card" onSubmit={mode==='login'?login:mode==='recover'?recover:mode==='reset'?reset:bootstrap}>
+ {sideLeft}{sideRight}<Brand/>
+ <div className="admin-auth-content">
+ <span className="panel-label">{mode==='login'?'ÁREA RESTRITA':'ACESSO AO NÚCLEO'}</span>
+ <h1>{title}</h1><p>{subtitle}</p>
+ {error&&<div className="admin-auth-error">⚠️ {error}</div>}
+ {success&&<div className="admin-auth-success">✓ {success}</div>}
+ {mode==='bootstrap'&&<>
+   <label>Nome completo<div className="admin-auth-input"><UserRound className="field-icon" size={25}/><input autoFocus placeholder="Digite seu nome completo" value={name} onChange={e=>setName(e.target.value)} required/></div></label>
+   <label>Usuário<div className="admin-auth-input"><UserRound className="field-icon" size={25}/><input placeholder="Digite seu usuário" value={username} onChange={e=>setUsername(e.target.value)} required autoComplete="username"/></div></label>
+   <label>E-mail<div className="admin-auth-input"><UserRound className="field-icon" size={25}/><input type="email" placeholder="Digite seu e-mail" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email"/></div></label>
+ </>}
+ {(mode==='login'||mode==='recover')&&<label>{mode==='login'?'E-mail ou usuário':'E-mail'}<div className="admin-auth-input"><UserRound className="field-icon" size={27}/><input autoFocus placeholder={mode==='login'?'Digite seu e-mail ou usuário':'Digite seu e-mail'} value={identifier} onChange={e=>setIdentifier(e.target.value)} required autoComplete={mode==='login'?'username':'email'}/></div></label>}
+ {mode!=='recover'&&<label>{mode==='reset'?'Nova senha':'Senha'}<div className="admin-auth-input"><LockKeyhole className="field-icon" size={26}/><input type={showPassword?'text':'password'} placeholder={mode==='reset'?'Digite sua nova senha':'Digite sua senha'} value={password} onChange={e=>setPassword(e.target.value)} required minLength={8} autoComplete={mode==='login'?'current-password':'new-password'}/><button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Ocultar senha':'Mostrar senha'}>{showPassword?<EyeOff size={28}/>:<Eye size={28}/>}</button></div></label>}
+ <button className="admin-auth-submit" disabled={loading}>{mode==='login'?'ENTRAR NO SISTEMA':mode==='recover'?'ENVIAR INSTRUÇÕES':mode==='reset'?'SALVAR NOVA SENHA':'CRIAR ADMINISTRADOR'} <ArrowRight size={32}/></button>
+ {mode==='login'&&<><button type="button" className="admin-auth-link" onClick={()=>{setMode('recover');setError('');setSuccess('')}}>ESQUECI A SENHA</button><div className="admin-auth-divider"/><button type="button" className="admin-auth-link" onClick={()=>{setMode('bootstrap');setError('');setSuccess('')}}>PRIMEIRO ACESSO / CRIAR ADMINISTRADOR</button></>}
  {mode==='recover'&&<button type="button" className="admin-auth-link" onClick={()=>{setMode('login');setError('');setSuccess('')}}>VOLTAR PARA LOGIN</button>}
  {mode==='bootstrap'&&<button type="button" className="admin-auth-link" onClick={()=>{setMode('login');setError('');setSuccess('')}}>JÁ POSSUO ADMINISTRADOR</button>}
- <p className="admin-auth-muted">Acesso administrativo protegido pelo sistema central do NIEGPT.</p></form></main></>;
+ <p className="admin-auth-muted">Acesso administrativo protegido pelo sistema central do NIEGPT.</p>
+ </div><Footer/></form></main></>;
 }
