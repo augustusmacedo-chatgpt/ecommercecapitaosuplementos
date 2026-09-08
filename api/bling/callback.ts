@@ -55,11 +55,14 @@ export async function GET(request: Request) {
     if (!tokens.access_token || !tokens.refresh_token) return fail('O Bling não retornou os tokens esperados.', 502);
 
     const expiresIn = Math.max(60, Number(tokens.expires_in ?? 21600));
+    const now = Date.now();
     await saveStoredData({
       ...configWithoutState,
       accessToken: tokens.access_token,
-      accessTokenExpiresAt: Date.now() + expiresIn * 1000,
+      accessTokenExpiresAt: now + expiresIn * 1000,
       refreshToken: tokens.refresh_token,
+      tokenUpdatedAt: now,
+      lastTokenRefreshAt: now,
     });
 
     const redirect = new URL('/admin', request.url);
