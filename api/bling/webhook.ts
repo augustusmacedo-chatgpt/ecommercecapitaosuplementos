@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
 import { get, put } from '../../src/server/storage.js';
 import { json } from '../../src/server/bling-shared.js';
-import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+import { loadStoredData, saveWebhookState } from '../../src/server/bling-store.js';
 import { awardOrderPoints, isCancelledOrderStatus, isEligibleOrderStatus, reverseOrderPoints, reverseOrderRedemption } from '../../src/server/pontos-engine.js';
 import { queueOrderSeparated } from '../../src/server/notifications.js';
 
@@ -26,7 +26,7 @@ export async function POST(request: Request, ctx?: ExecutionCtx) {
     try { payload = JSON.parse(rawBody) as WebhookPayload; } catch { return json({ error: 'Payload do webhook inválido.' }, 400); }
     const eventId = typeof payload.eventId === 'string' ? payload.eventId : '';
     if (eventId && eventId === stored.lastWebhookEventId) return json({ received: true, duplicate: true });
-    await saveStoredData({ ...stored, ...(eventId ? { lastWebhookEventId: eventId } : {}), lastWebhookEventAt: new Date().toISOString() });
+    await saveWebhookState({ ...(eventId ? { lastWebhookEventId: eventId } : {}), lastWebhookEventAt: new Date().toISOString() });
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
     const checkoutId = String(data.numeroLoja || '').trim();
     const resource = String(data.recurso || payload.event || '').toLowerCase();
