@@ -11,7 +11,7 @@ type LocationKey = 'camapua' | 'newfit';
 type CatalogCache = { savedAt: number; products: Product[] };
 
 const LOCATIONS: Record<'camapua' | 'newfit', LocationConfig> = {
-  camapua: { label: 'CAMAPUÃ', stock: 'ESTOQUE MATRIZ', payments: [
+  camapua: { label: 'CAMAPUÃ', stock: 'CAPITÃO SUPLEMENTOS CAMAPUÃ', payments: [
     ['credit1', 'CARTÃO CRÉDITO 1X', 'GETNET', 'D+2', 'credit'], ['credit2', 'CARTÃO CRÉDITO 2X', 'GETNET', 'D+2', 'credit'], ['credit3', 'CARTÃO CRÉDITO 3X', 'GETNET', 'D+2', 'credit'], ['debit', 'CARTÃO DÉBITO', 'GETNET', 'D+1', 'debit'], ['pix', 'PIX', 'SANTANDER PJ', 'D+0', 'pix'], ['cash', 'DINHEIRO', 'CAMAPUÃ', 'D+0', 'cash'], ['bemol', 'CREDIÁRIO BEMOL', 'BEMOL', 'CONTA ÚNICA', 'bemol']
   ] },
   newfit: { label: 'NEWFIT', stock: 'ESTOQUE NEWFIT', payments: [
