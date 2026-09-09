@@ -1,7 +1,8 @@
 import { getBlingAccessToken, refreshBlingAccessToken } from './bling-client.js';
+import { noteBlingRateLimit, waitForBlingRateCooldown } from './bling-rate-limit.js';
 
 const BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
-const MIN_REQUEST_INTERVAL_MS = Math.ceil(1000 / 3);
+const MIN_REQUEST_INTERVAL_MS = 400;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
 const RETRYABLE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);
@@ -44,11 +45,15 @@ async function waitForRateSlot() {
   scheduler = new Promise<void>(resolve => { release = resolve; });
   await previous;
 
-  const now = Date.now();
-  const wait = Math.max(0, nextSlotAt - now);
-  if (wait) await sleep(wait);
-  nextSlotAt = Date.now() + MIN_REQUEST_INTERVAL_MS;
-  release();
+  try {
+    await waitForBlingRateCooldown();
+    const now = Date.now();
+    const wait = Math.max(0, nextSlotAt - now);
+    if (wait) await sleep(wait);
+    nextSlotAt = Date.now() + MIN_REQUEST_INTERVAL_MS;
+  } finally {
+    release();
+  }
 }
 
 async function requestOnce(path: string, options: BlingGatewayOptions, token: string) {
@@ -107,6 +112,10 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
       await response.body?.cancel().catch(() => undefined);
       token = await refreshBlingAccessToken();
       continue;
+    }
+
+    if (response.status === 429) {
+      await noteBlingRateLimit(response);
     }
 
     if (!isRetryableStatus(response.status) || attempt >= retries) return response;
