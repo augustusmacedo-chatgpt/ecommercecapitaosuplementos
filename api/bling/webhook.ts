@@ -4,6 +4,7 @@ import { json } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveWebhookState } from '../../src/server/bling-store.js';
 import { awardOrderPoints, isCancelledOrderStatus, isEligibleOrderStatus, reverseOrderPoints, reverseOrderRedemption } from '../../src/server/pontos-engine.js';
 import { queueOrderSeparated } from '../../src/server/notifications.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
 
 type OrderRecord = Record<string, any>;
 type WebhookPayload = { eventId?: string; date?: string; version?: string; event?: string; companyId?: number; data?: any };
@@ -27,6 +28,7 @@ export async function POST(request: Request, ctx?: ExecutionCtx) {
     const eventId = typeof payload.eventId === 'string' ? payload.eventId : '';
     if (eventId && eventId === stored.lastWebhookEventId) return json({ received: true, duplicate: true });
     await saveWebhookState({ ...(eventId ? { lastWebhookEventId: eventId } : {}), lastWebhookEventAt: new Date().toISOString() });
+    await bumpBlingDataVersion(payload.event || 'webhook');
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
     const checkoutId = String(data.numeroLoja || '').trim();
     const resource = String(data.recurso || payload.event || '').toLowerCase();
@@ -40,7 +42,7 @@ export async function POST(request: Request, ctx?: ExecutionCtx) {
         if (isSeparatedStatus(status) && !next.orderSeparatedNotificationQueued) { const phone=String(next.customerPhone||next.phone||data.contato?.telefone||'').trim(); if(phone){ ctx?.waitUntil(queueOrderSeparated({checkoutId,phone,customerName:String(next.customerName||next.contato?.nome||''),orderId:Number(next.id||0)||undefined,orderNumber:Number(next.numero||0)||undefined,status}).then(async notification=>{ if(notification) await saveOrder(checkoutId,{...next,orderSeparatedNotificationQueued:true,orderSeparatedNotificationId:notification.id,orderSeparatedNotificationQueuedAt:new Date().toISOString()}); }).catch(error=>console.error('Notificação de pedido separado:',checkoutId,error))); } }
         if (isCancelledOrderStatus(status)) {
           if (next.pointsAwarded && !next.pointsReversed) ctx?.waitUntil(reverseOrderPoints({ ...next, checkoutId }).then(async result => { if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, pointsReversed: true, pointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result }); }).catch(error => console.error('Estorno de pontos da compra:', checkoutId, error)));
-          if (Number(next.loyaltyPointsRedeemed || 0) > 0 && !next.loyaltyPointsReversed) ctx?.waitUntil(reverseOrderRedemption({ ...next, checkoutId }).then(async result => { if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, loyaltyPointsReversed: true, loyaltyPointsReversedAt: next.loyaltyPointsReversedAt || new Date().toISOString(), loyaltyPointsReversalResult: result }); }).catch(error => console.error('Estorno do resgate de pontos:', checkoutId, error)));
+          if (Number(next.loyaltyPointsRedeemed || 0) > 0 && !next.loyaltyPointsReversed) ctx?.waitUntil(reverseOrderRedemption({ ...next, checkoutId }).then(async result => { if (result.reversed || result.duplicate) await saveOrder(checkoutId, { ...next, loyaltyPointsReversed: true, loyaltyPointsReversedAt: next.pointsReversedAt || new Date().toISOString(), pointsReversalResult: result }); }).catch(error => console.error('Estorno do resgate de pontos:', checkoutId, error)));
         } else if (isEligibleOrderStatus(status) && !next.pointsAwarded && !next.pointsReversed) ctx?.waitUntil(awardOrderPoints({ ...next, checkoutId }).then(async result => { if (result.earned || result.duplicate) await saveOrder(checkoutId, { ...next, pointsAwarded: true, pointsAwardedAt: next.pointsAwardedAt || new Date().toISOString(), pointsAwardedResult: result }); }).catch(error => console.error('Processamento de pontos do pedido:', checkoutId, error)));
       }
     }
