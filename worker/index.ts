@@ -7,6 +7,7 @@ import { GET as pdvReportGet, POST as pdvReportPost } from '../api/bling/pdv-rep
 import { GET as pdvSaleGet, POST as pdvSalePost } from '../api/bling/pdv-sale.js';
 import { GET as blingProductsGet } from '../api/bling/products.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
+import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
 import { GET as customersGet, POST as customersPost } from '../api/customers/[action].js';
 import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '../api/pontos/[action].js';
@@ -31,6 +32,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
   if (path === '/api/bling/products' && request.method === 'GET') return blingProductsGet(request);
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
+  if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost();
   if (path === '/api/bling/webhook') { if (request.method === 'GET') return blingWebhookGet(); if (request.method === 'POST') return blingWebhookPost(request, ctx); }
   if (path.startsWith('/api/customers/')) { if (request.method === 'GET') return customersGet(request); if (request.method === 'POST') return customersPost(request); }
   if (path.startsWith('/api/pontos/')) { if (request.method === 'GET') return pontosGet(request); if (request.method === 'POST') return pontosPost(request); if (request.method === 'DELETE') return pontosDelete(request); }
