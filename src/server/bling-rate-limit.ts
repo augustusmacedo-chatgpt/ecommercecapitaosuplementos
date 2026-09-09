@@ -54,7 +54,9 @@ export async function noteBlingRateLimit(response: Response): Promise<RateLimitP
     const payload = await response.clone().json() as { error?: { period?: string } };
     if (payload?.error?.period === 'day') {
       period = 'day';
-      cooldownMs = Math.max(cooldownMs, MAX_COOLDOWN_MS);
+      const now = new Date();
+      const nextUtcDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      cooldownMs = Math.max(cooldownMs, Math.min(24 * 60 * 60_000, nextUtcDay - now.getTime()));
     } else if (payload?.error?.period === 'second') {
       period = 'second';
     }
