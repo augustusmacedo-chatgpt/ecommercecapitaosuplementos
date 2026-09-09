@@ -165,7 +165,8 @@ async function fetchLive(path: string, options: BlingGatewayOptions, token: stri
     }
 
     if (response.status === 429) {
-      await noteBlingRateLimit(response);
+      const period = await noteBlingRateLimit(response);
+      if (period === 'day') return response;
     }
 
     if (!isRetryableStatus(response.status) || attempt >= retries) {
