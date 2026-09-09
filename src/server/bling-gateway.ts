@@ -78,7 +78,8 @@ function isMutationThatMayAffectCachedData(path: string) {
 
 function cacheResponse(response: Response): Promise<CacheableResponse> {
   const headers: [string, string][] = [];
-  response.headers.forEach((value, key) => headers.push([key, value]));
+  const contentType = response.headers.get('content-type');
+  if (contentType) headers.push(['content-type', contentType]);
   return response.text().then(body => ({
     status: response.status,
     statusText: response.statusText,
