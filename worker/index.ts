@@ -34,7 +34,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/products' && request.method === 'GET') return blingProductsGet(request);
   if (path === '/api/bling/product-detail' && request.method === 'GET') return blingProductDetailGet(request);
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
-  if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost();
+  if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost(request);
   if (path === '/api/bling/webhook') { if (request.method === 'GET') return blingWebhookGet(); if (request.method === 'POST') return blingWebhookPost(request, ctx); }
   if (path.startsWith('/api/customers/')) { if (request.method === 'GET') return customersGet(request); if (request.method === 'POST') return customersPost(request); }
   if (path.startsWith('/api/pontos/')) { if (request.method === 'GET') return pontosGet(request); if (request.method === 'POST') return pontosPost(request); if (request.method === 'DELETE') return pontosDelete(request); }
