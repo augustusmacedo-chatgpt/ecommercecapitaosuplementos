@@ -109,21 +109,13 @@ export async function GET(request: Request) {
       return json({ product }, 200, { 'Cache-Control': 'no-store' });
     }
 
-    // Consulta detalhada sob demanda: cada PDV precisa do saldo do seu
-    // próprio depósito. Em vez de depender da resposta agregada, consultamos
-    // diretamente os dois depósitos operacionais conhecidos da empresa.
+    // Consulta detalhada sob demanda: o PDV precisa dos saldos reais de
+    // CAMAPUÃ e NEWFIT. A API do Bling já retorna os dois depósitos no
+    // endpoint agregado, evitando que uma falha de resolução de um depósito
+    // faça uma das lojas aparecer zerada.
     if (ids.length) {
       const stockParams = new URLSearchParams();
       ids.forEach(productId => stockParams.append('idsProdutos[]', productId));
-
-      const depositsResponse = await fetch(
-        'https://api.bling.com.br/Api/v3/depositos?pagina=1&limite=100',
-        { headers: authHeaders(token) },
-      );
-      const depositsPayload = depositsResponse.ok
-        ? await depositsResponse.json() as { data?: any[] }
-        : { data: [] };
-      const deposits = Array.isArray(depositsPayload.data) ? depositsPayload.data : [];
 
       const normDeposit = (value: unknown) => String(value ?? '')
         .normalize('NFD')
@@ -140,12 +132,23 @@ export async function GET(request: Request) {
         ''
       ).trim();
 
-      // Regra operacional:
-      // - CAMAPUÃ lê o depósito real da Camapuã.
-      // - NEWFIT lê exclusivamente o depósito da unidade Newfit.
-      // Alguns cadastros do Bling possuem separadores, hífens ou pequenas
-      // variações no nome. Por isso normalizamos e aceitamos aliases seguros,
-      // sem jamais usar o saldo agregado de uma loja na outra.
+      // Depósitos também são paginados no Bling. Não podemos assumir que os
+      // dois depósitos operacionais estejam sempre na primeira página.
+      const deposits: any[] = [];
+      for (let page = 1; page <= 20; page += 1) {
+        const response = await fetch(
+          'https://api.bling.com.br/Api/v3/depositos?pagina=' + page + '&limite=100',
+          { headers: authHeaders(token) },
+        );
+        if (!response.ok) {
+          throw new Error('Não foi possível consultar os depósitos do Bling.');
+        }
+        const payload = await response.json() as { data?: any[] };
+        const batch = Array.isArray(payload.data) ? payload.data : [];
+        deposits.push(...batch);
+        if (batch.length < 100) break;
+      }
+
       const findDeposit = (exactNames: string[], keywords: string[]) => {
         const exact = deposits.find((deposit: any) => {
           const name = normDeposit(depositName(deposit));
@@ -168,48 +171,52 @@ export async function GET(request: Request) {
         ['NEWFIT'],
       );
 
-      async function getDepositStock(deposit: any) {
-        const depositId = Number(deposit?.id);
-        if (!depositId) return { deposit, byProduct: new Map<number, number>() };
-        const response = await fetch(
-          'https://api.bling.com.br/Api/v3/estoques/saldos/' + depositId + '?' + stockParams.toString(),
-          { headers: authHeaders(token) },
+      // Consulta única oficial para os produtos solicitados. A resposta traz
+      // todos os depósitos de cada produto, com os IDs e saldos reais.
+      const stockResponse = await fetch(
+        'https://api.bling.com.br/Api/v3/estoques/saldos?' + stockParams.toString(),
+        { headers: authHeaders(token) },
+      );
+      if (!stockResponse.ok) {
+        throw new Error('Não foi possível consultar os saldos de estoque no Bling.');
+      }
+      const stockPayload = await stockResponse.json() as { data?: any[] };
+      const stockRows = Array.isArray(stockPayload.data) ? stockPayload.data : [];
+      const stockByProduct = new Map<number, any>();
+
+      for (const item of stockRows) {
+        const productId = Number(
+          item?.produto?.id ??
+          item?.idProduto ??
+          item?.produtoId ??
+          item?.id
         );
-        const payload = response.ok ? await response.json() as { data?: any[] } : { data: [] };
-        const byProduct = new Map<number, number>();
-        for (const item of Array.isArray(payload.data) ? payload.data : []) {
-          const productId = Number(
-            item?.produto?.id ??
-            item?.produto?.codigo ??
-            item?.idProduto ??
-            item?.produtoId ??
-            item?.id
-          );
-          if (!productId) continue;
-          const saldo = Number(
-            item?.saldoVirtualTotal ??
-            item?.saldoVirtual ??
-            item?.saldoFisicoTotal ??
-            item?.saldoFisico ??
-            item?.saldo ??
-            item?.quantidade ??
-            item?.estoque ??
-            0
-          );
-          byProduct.set(productId, Number.isFinite(saldo) ? saldo : 0);
-        }
-        return { deposit, byProduct };
+        if (productId > 0) stockByProduct.set(productId, item);
       }
 
-      const [camapuaStock, newfitStock] = await Promise.all([
-        getDepositStock(camapuaDeposit),
-        getDepositStock(newfitDeposit),
-      ]);
+      const saldoOf = (deposit: any) => {
+        const value = Number(
+          deposit?.saldoVirtual ??
+          deposit?.saldoFisico ??
+          deposit?.saldo ??
+          deposit?.quantidade ??
+          0
+        );
+        return Number.isFinite(value) ? value : 0;
+      };
+
+      const targetDeposit = (row: any, target: any) => {
+        const targetId = Number(target?.id);
+        if (!targetId) return null;
+        const rowDeposits = Array.isArray(row?.depositos) ? row.depositos : [];
+        return rowDeposits.find((deposit: any) => Number(deposit?.id ?? deposit?.deposito?.id) === targetId) || null;
+      };
 
       const products = ids.map(productId => {
         const idNumber = Number(productId);
-        const camapuaSaldo = camapuaStock.byProduct.get(idNumber) ?? 0;
-        const newfitSaldo = newfitStock.byProduct.get(idNumber) ?? 0;
+        const row = stockByProduct.get(idNumber);
+        const camapuaSaldo = saldoOf(targetDeposit(row, camapuaDeposit));
+        const newfitSaldo = saldoOf(targetDeposit(row, newfitDeposit));
         const stockDeposits = [
           camapuaDeposit ? {
             id: Number(camapuaDeposit.id) || undefined,
@@ -232,7 +239,7 @@ export async function GET(request: Request) {
         return {
           id: idNumber,
           estoque: {
-            saldoVirtualTotal: 0, // o PDV usa somente os saldos por depósito; soma agregada é responsabilidade do site.
+            saldoVirtualTotal: Number(row?.saldoVirtualTotal ?? 0) || 0,
             depositos: stockDeposits,
           },
         };
@@ -242,7 +249,7 @@ export async function GET(request: Request) {
         products,
         total: products.length,
         source: 'bling-stock-by-deposit',
-        stockSource: 'estoques/saldos/{idDeposito}',
+        stockSource: 'estoques/saldos',
         deposits: {
           camapua: camapuaDeposit ? { id: Number(camapuaDeposit.id), nome: depositName(camapuaDeposit) } : null,
           newfit: newfitDeposit ? { id: Number(newfitDeposit.id), nome: depositName(newfitDeposit) } : null,
