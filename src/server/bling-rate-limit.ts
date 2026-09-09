@@ -8,6 +8,8 @@ const MAX_COOLDOWN_MS = 60_000;
 let localCooldownUntil = 0;
 let lastRemoteCheckAt = 0;
 
+type RateLimitPeriod = 'second' | 'day' | 'unknown';
+
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 function parseRetryAfter(value: string | null) {
@@ -30,7 +32,7 @@ async function readRemoteCooldown(now: number) {
       localCooldownUntil = Math.max(localCooldownUntil, Number(saved.expiresAt));
     }
   } catch {
-    // A falha no armazenamento não pode derrubar a integração com o Bling.
+    // Uma falha no armazenamento não pode derrubar a integração com o Bling.
   }
 }
 
@@ -44,13 +46,17 @@ export async function waitForBlingRateCooldown() {
   }
 }
 
-export async function noteBlingRateLimit(response: Response) {
+export async function noteBlingRateLimit(response: Response): Promise<RateLimitPeriod> {
   let cooldownMs = parseRetryAfter(response.headers.get('retry-after')) ?? DEFAULT_COOLDOWN_MS;
+  let period: RateLimitPeriod = 'unknown';
 
   try {
-    const payload = await response.clone().json() as { error?: { period?: string; description?: string } };
+    const payload = await response.clone().json() as { error?: { period?: string } };
     if (payload?.error?.period === 'day') {
+      period = 'day';
       cooldownMs = Math.max(cooldownMs, MAX_COOLDOWN_MS);
+    } else if (payload?.error?.period === 'second') {
+      period = 'second';
     }
   } catch {
     // Respostas 429 sem JSON continuam usando Retry-After ou cooldown padrão.
@@ -62,10 +68,12 @@ export async function noteBlingRateLimit(response: Response) {
   try {
     await put(
       COOLDOWN_KEY,
-      JSON.stringify({ expiresAt, updatedAt: Date.now() }),
+      JSON.stringify({ expiresAt, period, updatedAt: Date.now() }),
       { contentType: 'application/json' },
     );
   } catch {
     // O bloqueio local continua valendo mesmo sem R2.
   }
+
+  return period;
 }
