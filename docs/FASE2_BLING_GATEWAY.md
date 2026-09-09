@@ -14,6 +14,7 @@ Objetivo: fazer Site, Admin e PDV trabalharem sobre uma camada única de integra
 
 - Intervalo de 400 ms entre inícios de chamadas live, mantendo margem abaixo de 3 req/s por instância.
 - Cooldown compartilhado no R2 após `429`.
+- `429` identificado como limite diário não recebe novo retry.
 - Retry automático somente para métodos seguros/idempotentes por padrão.
 - POST não recebe retry transitório automático.
 - Uma única recuperação de `401` por chamada.
@@ -30,7 +31,7 @@ Objetivo: fazer Site, Admin e PDV trabalharem sobre uma camada única de integra
 - Canais de venda: 10 min.
 - Contatos: 30 s.
 
-Esses TTLs são uma camada de proteção de tráfego, não uma substituição da fonte oficial. Mutação bem-sucedida e webhook renovam a versão lógica do cache.
+Esses TTLs são uma camada de proteção de tráfego, não uma substituição da fonte oficial. Mutação bem-sucedida, alteração de credenciais e webhook renovam a versão lógica do cache.
 
 ## Webhooks
 
@@ -43,3 +44,7 @@ A API do Bling limita cada conta a 3 requisições por segundo e 120.000 por dia
 ## Fronteira
 
 As únicas chamadas diretas permitidas ao host autenticado do Bling são o gateway e os pontos de OAuth necessários ao fluxo de autorização/token. O CI verifica essa fronteira para evitar regressões.
+
+## Estado da etapa
+
+A Fase 2 permanece isolada no PR correspondente até que a validação de `typecheck` e `build` esteja observável no GitHub Actions. Nenhuma alteração desta etapa é aplicada diretamente ao `main`.
