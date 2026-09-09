@@ -1,5 +1,6 @@
 import { STATE_COOKIE, clearCookie, json, parseCookies } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
 
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
       tokenUpdatedAt: now,
       lastTokenRefreshAt: now,
     });
+    await bumpBlingDataVersion('oauth-connected');
 
     const redirect = new URL('/admin', request.url);
     redirect.searchParams.set('bling', 'connected');

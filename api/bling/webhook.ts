@@ -4,6 +4,7 @@ import { json } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveWebhookState } from '../../src/server/bling-store.js';
 import { awardOrderPoints, isCancelledOrderStatus, isEligibleOrderStatus, reverseOrderPoints, reverseOrderRedemption } from '../../src/server/pontos-engine.js';
 import { queueOrderSeparated } from '../../src/server/notifications.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
 
 type OrderRecord = Record<string, any>;
 type WebhookPayload = { eventId?: string; date?: string; version?: string; event?: string; companyId?: number; data?: any };
@@ -27,6 +28,7 @@ export async function POST(request: Request, ctx?: ExecutionCtx) {
     const eventId = typeof payload.eventId === 'string' ? payload.eventId : '';
     if (eventId && eventId === stored.lastWebhookEventId) return json({ received: true, duplicate: true });
     await saveWebhookState({ ...(eventId ? { lastWebhookEventId: eventId } : {}), lastWebhookEventAt: new Date().toISOString() });
+    await bumpBlingDataVersion(payload.event || 'webhook');
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
     const checkoutId = String(data.numeroLoja || '').trim();
     const resource = String(data.recurso || payload.event || '').toLowerCase();

@@ -1,10 +1,9 @@
 import { json } from '../../src/server/bling-shared.js';
-import { getBlingAccessToken } from '../../src/server/bling-client.js';
+import { blingFetch } from '../../src/server/bling-gateway.js';
 import { matchesCatalogQuery, normalizeCatalogProduct, type CatalogProduct } from '../../src/server/catalog.js';
 import { get, put, hasStorage } from '../../src/server/storage.js';
 
-const BLING_PRODUCTS_URL = 'https://api.bling.com.br/Api/v3/produtos';
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const BLING_PRODUCTS_URL = '/produtos';
 const CATALOG_CACHE_KEY = 'bling/catalog-last-good.json';
 
 async function readLastGoodCatalog(): Promise<{ products: CatalogProduct[]; savedAt?: string } | null> {
@@ -26,18 +25,14 @@ async function writeLastGoodCatalog(products: CatalogProduct[]) {
   }
 }
 
-function authHeaders(token: string) {
-  return { Accept: '1.0', Authorization: 'Bearer ' + token, 'enable-jwt': '1' };
-}
-
-async function getDetail(id: string, token: string): Promise<CatalogProduct | null> {
-  const response = await fetch(BLING_PRODUCTS_URL + '/' + id, { headers: authHeaders(token) });
+async function getDetail(id: string): Promise<CatalogProduct | null> {
+  const response = await blingFetch(BLING_PRODUCTS_URL + '/' + id);
   if (!response.ok) return null;
   const payload = await response.json() as { data?: unknown };
   return normalizeCatalogProduct(payload.data || {});
 }
 
-async function fetchPage(page: number, limit: number, token: string) {
+async function fetchPage(page: number, limit: number) {
   // criterio=5 força a listagem completa (ativos, inativos e excluídos, conforme o catálogo do Bling)
   // e tipo=T evita limitar a consulta a apenas um subtipo de produto.
   const params = new URLSearchParams({
@@ -46,9 +41,10 @@ async function fetchPage(page: number, limit: number, token: string) {
     criterio: '5',
     tipo: 'T',
   });
-  const response = await fetch(BLING_PRODUCTS_URL + '?' + params.toString(), { headers: authHeaders(token) });
+  const response = await blingFetch(BLING_PRODUCTS_URL + '?' + params.toString());
   if (!response.ok) {
-    console.error('Bling products error:', response.status, await response.text());
+    const details = await response.text();
+    console.error('Bling products error:', response.status, details.slice(0, 500));
     throw new Error(response.status === 401
       ? 'A autorização do Bling expirou. Reconecte o aplicativo.'
       : 'Não foi possível consultar os produtos no Bling.');
@@ -57,13 +53,12 @@ async function fetchPage(page: number, limit: number, token: string) {
   return Array.isArray(payload.data) ? payload.data.map(normalizeCatalogProduct) : [];
 }
 
-async function enrichVisibleImages(products: CatalogProduct[], token: string, maxProducts: number) {
+async function enrichVisibleImages(products: CatalogProduct[], maxProducts: number) {
   const visible = products.slice(0, maxProducts);
   for (let index = 0; index < visible.length; index += 1) {
     if (!visible[index]?.id) continue;
-    if (index > 0) await sleep(220);
     try {
-      const detail = await getDetail(String(visible[index].id), token);
+      const detail = await getDetail(String(visible[index].id));
       if (detail) products[index] = { ...products[index], ...detail, updatedAt: products[index].updatedAt };
     } catch (error) {
       console.warn('Bling product detail enrichment failed:', visible[index].id, error);
@@ -100,11 +95,10 @@ export async function GET(request: Request) {
         .filter(value => /^\d+$/.test(value))
         .slice(0, 30)
     ));
-    const token = await getBlingAccessToken();
 
     if (id) {
       if (!/^\d+$/.test(id)) return json({ error: 'Produto inválido.' }, 400);
-      const product = await getDetail(id, token);
+      const product = await getDetail(id);
       if (!product) return json({ error: 'Produto não encontrado no Bling.' }, 404);
       return json({ product }, 200, { 'Cache-Control': 'no-store' });
     }
@@ -136,10 +130,7 @@ export async function GET(request: Request) {
       // dois depósitos operacionais estejam sempre na primeira página.
       const deposits: any[] = [];
       for (let page = 1; page <= 20; page += 1) {
-        const response = await fetch(
-          'https://api.bling.com.br/Api/v3/depositos?pagina=' + page + '&limite=100',
-          { headers: authHeaders(token) },
-        );
+        const response = await blingFetch('/depositos?pagina=' + page + '&limite=100');
         if (!response.ok) {
           throw new Error('Não foi possível consultar os depósitos do Bling.');
         }
@@ -173,10 +164,7 @@ export async function GET(request: Request) {
 
       // Consulta única oficial para os produtos solicitados. A resposta traz
       // todos os depósitos de cada produto, com os IDs e saldos reais.
-      const stockResponse = await fetch(
-        'https://api.bling.com.br/Api/v3/estoques/saldos?' + stockParams.toString(),
-        { headers: authHeaders(token) },
-      );
+      const stockResponse = await blingFetch('/estoques/saldos?' + stockParams.toString());
       if (!stockResponse.ok) {
         throw new Error('Não foi possível consultar os saldos de estoque no Bling.');
       }
@@ -269,7 +257,7 @@ export async function GET(request: Request) {
       const maxPages = 50;
       const seenIds = new Set<number>();
       for (page = 1; page <= maxPages; page += 1) {
-        const batch = await fetchPage(page, limit, token);
+        const batch = await fetchPage(page, limit);
         const before = products.length;
         for (const product of batch) {
           const id = Number(product.id || 0);
@@ -288,11 +276,11 @@ export async function GET(request: Request) {
         }
         complete = page < maxPages;
       }
-      await enrichVisibleImages(products, token, Math.min(12, products.length));
+      await enrichVisibleImages(products, Math.min(12, products.length));
       await writeLastGoodCatalog(products);
     } else {
-      products = await fetchPage(requestedPage, limit, token);
-      await enrichVisibleImages(products, token, Math.min(12, products.length));
+      products = await fetchPage(requestedPage, limit);
+      await enrichVisibleImages(products, Math.min(12, products.length));
     }
 
     const filtered = filterProducts(products, url);

@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomInt } from 'node:crypto';
 import { get, put } from '../../src/server/storage.js';
 import { json, readJsonBody } from '../../src/server/bling-shared.js';
-import { getBlingAccessToken } from '../../src/server/bling-client.js';
+import { blingFetch } from '../../src/server/bling-gateway.js';
 import { accountStorageKey } from '../../src/server/pontos.js';
 import { isValidEmail, normalizeEmail } from '../../src/server/customer-identity.js';
 import { CustomerAddress, CustomerRecord, findCustomersByName, loadCustomerByEmail, loadCustomerByPhone, loadCustomerById, normalizePhone, publicCustomer, removeCustomerAddress, saveCustomer, saveCustomerAddress, setDefaultCustomerAddress } from '../../src/server/customer-store.js';
@@ -110,11 +110,11 @@ async function verifyCode(request: Request) {
 
 async function createBlingContact(customer: CustomerRecord) {
   try {
-    const token = await getBlingAccessToken();
-    const response = await fetch('https://api.bling.com.br/Api/v3/contatos', {
+    const response = await blingFetch('/contatos', {
       method: 'POST',
-      headers: { Accept: '1.0', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome: customer.name, tipoPessoa: 'F', email: customer.email, telefone: customer.phone }),
+      retries: 0,
     });
     if (!response.ok) return undefined;
     const data = await response.json() as { data?: { id?: number } };

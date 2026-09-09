@@ -1,6 +1,7 @@
 import { json, readJsonBody, type BlingConfig } from '../../src/server/bling-shared.js';
 import { hasPersistentStorage, loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
 import { sessionUser } from '../lib/pdv-auth.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
 
 function storageUnavailable() {
   return json(
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
     };
 
     await saveStoredData(next);
+    if (credentialsChanged) await bumpBlingDataVersion('oauth-credentials-changed');
 
     return json(
       {
