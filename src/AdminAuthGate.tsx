@@ -93,7 +93,7 @@ const css=`
   box-shadow:0 0 12px rgba(55,181,255,.7)
 }
 .admin-auth-side.right:after{margin-left:auto}
-.panel-label{
+.admin-auth-card .panel-label{
   display:block;color:#5ec8ff;font-size:12px;font-weight:800;letter-spacing:9px;
   text-align:center;margin:0 0 8px;text-transform:uppercase;
 }
@@ -192,7 +192,7 @@ const css=`
   .admin-auth-shell{padding:10px;align-items:flex-start}
   .admin-auth-card{min-height:calc(100vh - 20px);padding:28px 22px 145px;border-radius:22px}
   .admin-auth-logo{width:min(420px,94vw);max-height:250px}
-  .panel-label{font-size:10px;letter-spacing:7px}
+  .admin-auth-card .panel-label{font-size:10px;letter-spacing:7px}
   .admin-auth-card h1{font-size:36px}
   .admin-auth-card p{font-size:15px}
   .admin-auth-card label{font-size:16px}
