@@ -7,7 +7,7 @@ Objetivo: fazer Site, Admin e PDV trabalharem sobre uma camada única de integra
 1. **Bling** é a fonte oficial para dados operacionais e alterações.
 2. **Gateway** centraliza autenticação, controle de início das requisições, timeout, retry seguro e recuperação de 401.
 3. **Retaguarda/cache R2** mantém leituras recentes dos recursos mais consultados e deduplica chamadas simultâneas idênticas.
-4. **Webhooks** invalidam a versão do cache quando o Bling informa alterações, reduzindo a dependência de polling.
+4. **Webhooks** renovam a geração do cache quando o Bling informa alterações, reduzindo a dependência de polling.
 5. **Último dado válido** pode continuar sendo usado quando uma leitura de catálogo falha, evitando que uma instabilidade momentânea derrube a operação de consulta.
 
 ## Proteções contra limite
@@ -34,11 +34,11 @@ Esses TTLs são uma camada de proteção de tráfego, não uma substituição da
 
 ## Webhooks
 
-O Bling recomenda webhooks em vez de polling quando o objetivo é acompanhar alterações, justamente para evitar consultas repetidas sem novidade. A integração valida `X-Bling-Signature-256`, registra o evento e agora também invalida a versão da retaguarda local. O processamento deve continuar idempotente porque o Bling pode reenviar eventos e não garante ordenação entre eventos. citehttps://developer.bling.com.br/webhooks
+O Bling recomenda webhooks quando o objetivo é acompanhar alterações, porque eles evitam consultas repetidas sem novidade. A integração valida `X-Bling-Signature-256`, registra o evento e renova a versão da retaguarda local. O processamento deve continuar idempotente porque o Bling pode reenviar eventos e não garante ordenação entre eventos.
 
 ## Limite oficial
 
-A API do Bling limita cada conta a 3 requisições por segundo e 120.000 por dia, somando os módulos/endpoints da conta. Portanto, a retaguarda deve priorizar cache e eventos antes de aumentar polling. citehttps://developer.bling.com.br/limites
+A API do Bling limita cada conta a 3 requisições por segundo e 120.000 por dia, somando os módulos/endpoints da conta. Portanto, a retaguarda prioriza cache e eventos antes de aumentar polling.
 
 ## Fronteira
 
