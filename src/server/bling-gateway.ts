@@ -189,13 +189,12 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
     : Math.max(0, Math.min(MAX_RETRIES, options.retries ?? 0));
   const cacheTtlMs = cacheTtlFor(path, options);
 
-  let token = await getBlingAccessToken();
-
   if (cacheTtlMs > 0) {
     const cached = await getBlingCached<CacheableResponse>(
       `response:${method}:${path}`,
       cacheTtlMs,
       async () => {
+        const token = await getBlingAccessToken();
         const response = await fetchLive(path, options, token, retries, method);
         const snapshot = await cacheResponse(response.clone());
         return snapshot.status >= 200 && snapshot.status < 300 ? snapshot : Promise.reject(new Error(`HTTP ${snapshot.status}`));
@@ -204,6 +203,7 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
     return responseFromCache(cached.data);
   }
 
+  const token = await getBlingAccessToken();
   return fetchLive(path, options, token, retries, method);
 }
 
