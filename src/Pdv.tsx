@@ -123,7 +123,7 @@ function ProductImage({ product, className }: { product: Product; className?: st
   useEffect(() => { setIndex(0); }, [product.id, candidates.join('|')]);
   const src = candidates[index];
   if (!src) return <div className="noimg">CAPITÃO</div>;
-  return <img className={className} src={src} alt="" loading="lazy" onError={() => setIndex(current => current + 1 < candidates.length ? current + 1 : current)} />;
+  return <img className={className} src={src} alt="" loading="lazy" onError={() => setIndex(current => current + 1)} />;
 }
 function paymentIcon(type: Payment['icon']) { if (type === 'credit' || type === 'debit') return <CreditCard size={17} />; if (type === 'pix') return <QrCode size={17} />; if (type === 'cash') return <Banknote size={17} />; return <FileText size={17} />; }
 
