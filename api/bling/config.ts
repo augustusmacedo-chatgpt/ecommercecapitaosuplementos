@@ -1,5 +1,6 @@
 import { json, readJsonBody, type BlingConfig } from '../../src/server/bling-shared.js';
 import { hasPersistentStorage, loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+import { sessionUser } from '../lib/pdv-auth.js';
 
 function storageUnavailable() {
   return json(
@@ -8,11 +9,20 @@ function storageUnavailable() {
   );
 }
 
-export async function GET(request?: Request) {
+async function requireAdmin(request: Request) {
+  const user = await sessionUser(request);
+  return user?.role === 'ADMIN';
+}
+
+export async function GET(request: Request) {
   if (!hasPersistentStorage()) return storageUnavailable();
+  if (!(await requireAdmin(request))) {
+    return json({ error: 'Acesso administrativo necessário.' }, 403);
+  }
+
   try {
     const data = await loadStoredData();
-    const reveal = request ? new URL(request.url).searchParams.get('reveal') === '1' : false;
+    const reveal = new URL(request.url).searchParams.get('reveal') === '1';
     const storedSecret = data?.clientSecret || '';
     return json(
       {
@@ -20,6 +30,8 @@ export async function GET(request?: Request) {
         configured: Boolean(data?.clientId && storedSecret),
         secretConfigured: Boolean(storedSecret),
         secretMask: storedSecret ? '•'.repeat(Math.max(32, storedSecret.length)) : '',
+        refreshTokenUpdatedAt: data?.refreshTokenUpdatedAt || null,
+        refreshTokenExpiresAt: data?.refreshTokenExpiresAt || null,
         ...(reveal && storedSecret ? { clientSecret: storedSecret } : {}),
         inviteLink: data?.inviteLink || '',
       },
@@ -36,6 +48,9 @@ export async function GET(request?: Request) {
 
 export async function POST(request: Request) {
   if (!hasPersistentStorage()) return storageUnavailable();
+  if (!(await requireAdmin(request))) {
+    return json({ error: 'Acesso administrativo necessário.' }, 403);
+  }
 
   try {
     const body = await readJsonBody(request) as Partial<BlingConfig>;
@@ -53,8 +68,6 @@ export async function POST(request: Request) {
       return json({ error: 'Client ID e Client Secret são obrigatórios.' }, 400);
     }
 
-    // Changing OAuth application credentials invalidates the old authorization.
-    // Never keep tokens that belong to a previous Client ID/Secret.
     const credentialsChanged =
       clientId !== (current?.clientId || '') ||
       clientSecret !== (current?.clientSecret || '');
@@ -69,8 +82,12 @@ export async function POST(request: Request) {
             accessToken: undefined,
             accessTokenExpiresAt: undefined,
             refreshToken: undefined,
+            refreshTokenUpdatedAt: undefined,
+            refreshTokenExpiresAt: undefined,
             oauthState: undefined,
             oauthStateExpiresAt: undefined,
+            tokenUpdatedAt: undefined,
+            lastTokenRefreshAt: undefined,
           }
         : {}),
     };
