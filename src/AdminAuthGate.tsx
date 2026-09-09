@@ -21,7 +21,7 @@ const css=`
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:20px;
+  padding:16px;
   font-family:Inter,ui-sans-serif,system-ui;
   position:relative;
   overflow:hidden;
@@ -41,14 +41,14 @@ const css=`
   box-shadow:0 0 45px rgba(26,108,255,.35);
 }
 .admin-auth-card{
-  width:min(820px,100%);
+  width:min(620px,100%);
   min-height:0;
   background:
     linear-gradient(180deg,rgba(6,15,28,.94),rgba(2,9,17,.97)),
     radial-gradient(circle at 50% 0%,rgba(30,123,255,.09),transparent 42%);
   border:1px solid rgba(79,185,255,.8);
-  border-radius:26px;
-  padding:30px 58px 110px;
+  border-radius:22px;
+  padding:24px 46px 88px;
   box-shadow:
     0 0 0 1px rgba(116,214,255,.08) inset,
     0 0 55px rgba(24,117,255,.18),
@@ -60,7 +60,7 @@ const css=`
   justify-content:center;
 }
 .admin-auth-card:before{
-  content:"";position:absolute;inset:0;border-radius:26px;pointer-events:none;
+  content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
   background:linear-gradient(115deg,rgba(74,185,255,.07),transparent 20%,transparent 80%,rgba(33,115,255,.06));
 }
 .admin-auth-brand{
@@ -68,55 +68,55 @@ const css=`
   display:flex;
   align-items:center;
   justify-content:center;
-  margin:0 0 24px;
+  margin:0 0 16px;
   position:relative;
   z-index:1;
 }
 .admin-auth-logo{
   display:block;
-  width:min(440px,72vw);
+  width:min(340px,66vw);
   height:auto;
-  max-height:220px;
+  max-height:170px;
   object-fit:contain;
   filter:drop-shadow(0 14px 32px rgba(20,115,255,.18));
   user-select:none;
   -webkit-user-drag:none;
 }
-.admin-auth-content{position:relative;z-index:1;width:min(680px,100%);margin:0 auto}
+.admin-auth-content{position:relative;z-index:1;width:min(520px,100%);margin:0 auto}
 .admin-auth-side{
-  position:absolute;top:32px;width:100px;color:#c8d6e4;font-size:9px;
-  font-weight:700;letter-spacing:5px;line-height:2.1;text-transform:uppercase;
+  position:absolute;top:24px;width:82px;color:#c8d6e4;font-size:8px;
+  font-weight:700;letter-spacing:4px;line-height:2;text-transform:uppercase;
 }
 .admin-auth-side.left{left:34px}.admin-auth-side.right{right:34px;text-align:right}
 .admin-auth-side:after{
-  content:"";display:block;width:50px;height:2px;background:#47c4ff;margin-top:13px;
+  content:"";display:block;width:42px;height:2px;background:#47c4ff;margin-top:10px;
   box-shadow:0 0 12px rgba(55,181,255,.7)
 }
 .admin-auth-side.right:after{margin-left:auto}
 .panel-label{
   display:block;color:#5ec8ff;font-size:12px;font-weight:800;letter-spacing:9px;
-  text-align:center;margin:0 0 12px;text-transform:uppercase;
+  text-align:center;margin:0 0 8px;text-transform:uppercase;
 }
 .admin-auth-card h1{
   font-family:Modpot,Inter,sans-serif;
-  font-size:42px;line-height:1;margin:0 0 14px;
+  font-size:34px;line-height:1;margin:0 0 10px;
   text-align:center;font-weight:700;letter-spacing:1px;color:#f5f7fa;
 }
 .admin-auth-card p{
-  margin:0 auto 20px;color:#c1cbd7;font-size:16px;line-height:1.5;
+  margin:0 auto 14px;color:#c1cbd7;font-size:14px;line-height:1.45;
   text-align:center;max-width:650px;
 }
 .admin-auth-card label{
-  display:block;color:#eef3f8;font-size:17px;font-weight:800;
-  margin:14px 0 6px;
+  display:block;color:#eef3f8;font-size:15px;font-weight:800;
+  margin:10px 0 5px;
 }
 .admin-auth-input{position:relative;margin-top:12px}
 .admin-auth-input input{
-  box-sizing:border-box;width:100%;height:64px;
+  box-sizing:border-box;width:100%;height:54px;
   background:linear-gradient(90deg,rgba(13,27,45,.92),rgba(10,19,32,.96));
   border:1px solid rgba(99,179,238,.7);
-  border-radius:15px;color:#fff;padding:0 60px;
-  outline:0;font-size:17px;font-family:Inter,sans-serif;
+  border-radius:12px;color:#fff;padding:0 52px;
+  outline:0;font-size:15px;font-family:Inter,sans-serif;
   transition:.18s ease;
   box-shadow:inset 0 0 30px rgba(39,124,220,.04),0 0 0 1px rgba(78,188,255,.03);
 }
@@ -126,22 +126,22 @@ const css=`
   box-shadow:0 0 0 3px rgba(72,208,255,.1),0 0 28px rgba(33,133,255,.14)
 }
 .admin-auth-input .field-icon{
-  position:absolute;left:20px;top:50%;transform:translateY(-50%);
+  position:absolute;left:16px;top:50%;transform:translateY(-50%);
   color:#c6d9eb;pointer-events:none;
 }
 .admin-auth-input button{
   position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  width:40px;height:40px;border:0;background:transparent;color:#c6d9eb;
+  width:36px;height:36px;border:0;background:transparent;color:#c6d9eb;
   display:grid;place-items:center;cursor:pointer;
 }
 .admin-auth-submit{
-  width:100%;height:70px;border:1px solid rgba(81,235,255,.95);
+  width:100%;height:58px;border:1px solid rgba(81,235,255,.95);
   border-radius:15px;
   background:linear-gradient(100deg,#1d82ff 0%,#3bcfff 50%,#1d52e8 100%);
   color:#06111e;font-family:Modpot,Inter,sans-serif;font-weight:700;
-  font-size:22px;letter-spacing:2px;
+  font-size:18px;letter-spacing:1.5px;
   display:flex;align-items:center;justify-content:center;gap:16px;
-  margin-top:18px;cursor:pointer;
+  margin-top:14px;cursor:pointer;
   box-shadow:0 0 24px rgba(45,206,255,.4),0 16px 40px rgba(21,105,255,.25);
   transition:.18s ease;
 }
@@ -153,13 +153,13 @@ const css=`
 .admin-auth-error{background:#291719;border:1px solid #6e373d;color:#f0b1b7}
 .admin-auth-success{background:#10251e;border:1px solid #275d50;color:#aee7cf}
 .admin-auth-link{
-  display:block;text-align:center;margin:20px auto 0;border:0;background:transparent;
-  color:#68c9ff;font-size:17px;font-weight:800;letter-spacing:2px;cursor:pointer;
+  display:block;text-align:center;margin:14px auto 0;border:0;background:transparent;
+  color:#68c9ff;font-size:14px;font-weight:800;letter-spacing:1.5px;cursor:pointer;
 }
 .admin-auth-link:hover{color:#b6edff}
 .admin-auth-muted{
   color:#9baabd!important;font-size:11px!important;text-align:center;
-  margin:18px auto 0!important;letter-spacing:.3px;
+  margin:12px auto 0!important;letter-spacing:.2px;
 }
 .admin-auth-divider{height:1px;width:48%;margin:28px auto 0;background:linear-gradient(90deg,transparent,#2d78b5,transparent)}
 .admin-auth-footer{
@@ -176,7 +176,7 @@ const css=`
 .admin-auth-session button{border:0;background:transparent;color:#58bfff;display:grid;place-items:center;cursor:pointer;padding:2px}
 
 @media(max-width:900px){
-  .admin-auth-card{padding:30px 40px 100px}
+  .admin-auth-card{padding:24px 32px 84px}
   .admin-auth-side{display:none}
   .admin-auth-wordmark{font-size:54px}
 }
