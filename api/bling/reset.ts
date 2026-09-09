@@ -1,6 +1,7 @@
 import { json } from '../../src/server/bling-shared.js';
 import { hasPersistentStorage, loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
 import { sessionUser } from '../lib/pdv-auth.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
 
 export async function POST(request: Request) {
   if (!hasPersistentStorage()) {
@@ -17,8 +18,6 @@ export async function POST(request: Request) {
       return json({ ok: true, connected: false }, 200, { 'Cache-Control': 'no-store' });
     }
 
-    // Remove only the current OAuth authorization state.
-    // Client ID/Secret remain saved so the administrator can authorize again.
     await saveStoredData({
       ...current,
       accessToken: undefined,
@@ -31,6 +30,7 @@ export async function POST(request: Request) {
       oauthState: undefined,
       oauthStateExpiresAt: undefined,
     });
+    await bumpBlingDataVersion('oauth-reset');
 
     return json({ ok: true, connected: false }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
