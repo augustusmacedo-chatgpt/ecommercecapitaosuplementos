@@ -25,7 +25,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/cnpj' && request.method === 'GET') return cnpjGet(request);
   if (path === '/api/bling/authorize' && request.method === 'GET') return blingAuthorize(request);
   if (path === '/api/bling/callback' && request.method === 'GET') return blingCallback(request);
-  if (path === '/api/bling/config') { if (request.method === 'GET') return blingConfigGet(); if (request.method === 'POST') return blingConfigPost(request); }
+  if (path === '/api/bling/config') { if (request.method === 'GET') return blingConfigGet(request); if (request.method === 'POST') return blingConfigPost(request); }
   if (path === '/api/bling/order' && request.method === 'POST') return blingOrderPost(request);
   if (path === '/api/bling/pdv-report') { if (request.method === 'GET') return pdvReportGet(request); if (request.method === 'POST') return pdvReportPost(request); }
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
