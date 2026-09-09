@@ -174,7 +174,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/bling/products?pagina=1&limite=100&todos=1&ativos=1', { cache: 'no-store' })
+    fetch('/api/bling/products?pagina=1&limite=100&todos=1', { cache: 'no-store' })
       .then(readCatalog)
       .then(data => { if (active) setBlingProducts((data.products || []).map(toSiteProduct)); })
       .catch(error => { if (active) setCatalogError(error instanceof Error ? error.message : 'Catálogo temporariamente indisponível.'); })
