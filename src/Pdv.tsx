@@ -71,7 +71,7 @@ function locationStock(raw: any, location: 'camapua' | 'newfit') {
 
   return legacy ? saldoOf(legacy) : 0;
 }
-const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v3';
+const PDV_CATALOG_CACHE_KEY = 'capitao-pdv-catalog-v4';
 function readCatalogCache(): CatalogCache | null {
   try {
     const raw = localStorage.getItem(PDV_CATALOG_CACHE_KEY);
@@ -120,12 +120,12 @@ function mapCatalogProducts(data: any): Product[] {
 function ProductImage({ product, className }: { product: Product; className?: string }) {
   const baseCandidates = product.imageCandidates?.length ? product.imageCandidates : (product.image ? [product.image] : []);
   const [candidates, setCandidates] = useState<string[]>(baseCandidates);
-  const [index, setIndex] = useState(0);
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setCandidates(baseCandidates);
-    setIndex(0);
+    setFailed(new Set());
     setHydrated(false);
   }, [product.id, baseCandidates.join('|')]);
 
@@ -138,16 +138,17 @@ function ProductImage({ product, className }: { product: Product; className?: st
       if (!response.ok || !data?.product) return;
       const detailCandidates = imageCandidatesOf(data.product);
       if (!detailCandidates.length) return;
-      setCandidates(current => {
-        const merged = Array.from(new Set([...current, ...detailCandidates].filter(Boolean)));
-        return merged;
-      });
+      setCandidates(current => Array.from(new Set([...current, ...detailCandidates].filter(Boolean))));
     } catch {
       // Mantém o fallback visual do PDV sem quebrar o card.
     }
   };
 
-  const src = candidates[index];
+  // Escolhe sempre a primeira URL que ainda não falhou. Assim, quando uma
+  // imagem do Bling quebra, não deixamos o índice ultrapassar a lista e as
+  // imagens obtidas depois pelo endpoint de detalhe passam a ser usadas.
+  const src = candidates.find(candidate => !failed.has(candidate));
+
   if (!src) {
     if (!hydrated) {
       void hydrateFromDetail();
@@ -162,12 +163,14 @@ function ProductImage({ product, className }: { product: Product; className?: st
     alt=""
     loading="lazy"
     onError={() => {
-      if (index + 1 < candidates.length) {
-        setIndex(current => current + 1);
-        return;
+      setFailed(current => {
+        const next = new Set(current);
+        next.add(src);
+        return next;
+      });
+      if (candidates.every(candidate => candidate === src || failed.has(candidate))) {
+        void hydrateFromDetail();
       }
-      void hydrateFromDetail();
-      setIndex(current => current + 1);
     }}
   />;
 }
