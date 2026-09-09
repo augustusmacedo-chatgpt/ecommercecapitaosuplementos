@@ -3,7 +3,7 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, ShieldCheck, UserRound } 
 import Admin from './Admin';
 
 type User={id:string;name:string;username:string;email:string;role:'ADMIN'|'OPERATOR'};
-type Mode='login'|'recover'|'reset'|'bootstrap';
+type Mode='login'|'recover'|'reset';
 
 const css=`
 @font-face{font-family:Modpot;src:url('/fonts/modpot-login.otf') format('opentype');font-display:swap}
@@ -164,12 +164,20 @@ const css=`
 .admin-auth-divider{height:1px;width:48%;margin:28px auto 0;background:linear-gradient(90deg,transparent,#2d78b5,transparent)}
 .admin-auth-footer{
   position:absolute;left:30px;right:30px;bottom:24px;z-index:1;
-  display:grid;grid-template-columns:1fr 2fr 1fr;gap:20px;align-items:end;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:start;
   color:#aeb9c7;text-transform:uppercase;
 }
-.admin-auth-footer div{font-size:10px;font-weight:700;letter-spacing:5px;line-height:1.7}
-.admin-auth-footer div:nth-child(2){text-align:center}.admin-auth-footer div:nth-child(3){text-align:right}
-.admin-auth-footer .foot-line{display:block;width:100%;height:1px;background:linear-gradient(90deg,#248fe0,transparent);margin-bottom:12px}
+.admin-auth-footer div{
+  min-height:58px;font-size:9px;font-weight:700;letter-spacing:4px;line-height:1.65;
+  display:flex;flex-direction:column;justify-content:flex-start;
+}
+.admin-auth-footer div:nth-child(1){text-align:left;align-items:flex-start}
+.admin-auth-footer div:nth-child(2){text-align:center;align-items:center}
+.admin-auth-footer div:nth-child(3){text-align:right;align-items:flex-end}
+.admin-auth-footer .foot-line{
+  display:block;width:100%;height:1px;margin:0 0 10px;
+  background:linear-gradient(90deg,#248fe0,transparent);
+}
 .admin-auth-footer div:nth-child(2) .foot-line{background:linear-gradient(90deg,transparent,#286da4,transparent)}
 .admin-auth-footer div:nth-child(3) .foot-line{background:linear-gradient(90deg,transparent,#248fe0)}
 .admin-auth-session{position:fixed;right:22px;top:18px;z-index:100;border:1px solid #1f425f;background:#09111be8;color:#d7eaff;border-radius:999px;padding:9px 11px;font-size:10px;display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px #0008}
@@ -247,12 +255,6 @@ export default function AdminAuthGate(){
   try{await call('recover-reset',{token:new URLSearchParams(location.search).get('recover')||'',password});setSuccess('Senha alterada. Voltando para o login...');setTimeout(()=>location.href='/admin',900)}
   catch(e){setError(e instanceof Error?e.message:'Não foi possível alterar a senha.')}
  }
- async function bootstrap(e:React.FormEvent){
-  e.preventDefault();setError('');setSuccess('');setLoading(true);
-  try{const d=await call('bootstrap-admin',{name,username,email,password});setUser(d.user);setPassword('')}
-  catch(e){setError(e instanceof Error?e.message:'Não foi possível criar o administrador inicial.')}
-  finally{setLoading(false)}
- }
  async function logout(){try{await call('logout')}finally{setUser(null);setIdentifier('');setPassword('');setMode('login')}}
 
  const sideLeft=<aside className="admin-auth-side left">TECNOLOGIA<br/>ESTRATÉGIA<br/>PESSOAS<br/>RESULTADOS</aside>;
@@ -264,10 +266,10 @@ export default function AdminAuthGate(){
 
  if(user&&user.role!=='ADMIN')return <><style>{css}</style><main className="admin-auth-shell"><section className="admin-auth-card">{sideLeft}{sideRight}<Brand/><div className="admin-auth-content"><span className="panel-label">ÁREA RESTRITA</span><h1>Acesso restrito</h1><p>Este usuário possui acesso operacional, mas não possui permissão para acessar o núcleo administrativo.</p><div className="admin-auth-error">Use uma conta com perfil ADMINISTRADOR para continuar.</div><button className="admin-auth-submit" onClick={logout}>SAIR <LogOut size={20}/></button></div><Footer/></section></main></>;
 
- const title=mode==='login'?'Entrar na administração':mode==='recover'?'Recuperar acesso':mode==='reset'?'Criar nova senha':'Criar administrador inicial';
- const subtitle=mode==='login'?'Acesso restrito ao sistema NIEGPT. Use seu usuário ou e-mail administrativo.':mode==='recover'?'Informe o e-mail do usuário para receber as instruções de recuperação.':mode==='reset'?'Defina uma nova senha segura para sua conta administrativa.':'Use esta opção apenas para configurar o primeiro administrador do sistema.';
+ const title=mode==='login'?'Entrar na administração':mode==='recover'?'Recuperar acesso':'Criar nova senha';
+ const subtitle=mode==='login'?'Acesso restrito ao sistema NIEGPT. Use seu usuário ou e-mail administrativo.':mode==='recover'?'Informe o e-mail do usuário para receber as instruções de recuperação.':'Defina uma nova senha segura para sua conta administrativa.';
 
- return <><style>{css}</style><main className="admin-auth-shell"><form className="admin-auth-card" onSubmit={mode==='login'?login:mode==='recover'?recover:mode==='reset'?reset:bootstrap}>
+ return <><style>{css}</style><main className="admin-auth-shell"><form className="admin-auth-card" onSubmit={mode==='login'?login:mode==='recover'?recover:reset}>
  {sideLeft}{sideRight}<Brand/>
  <div className="admin-auth-content">
  <span className="panel-label">{mode==='login'?'ÁREA RESTRITA':'ACESSO AO NÚCLEO'}</span>
@@ -282,9 +284,8 @@ export default function AdminAuthGate(){
  {(mode==='login'||mode==='recover')&&<label>{mode==='login'?'E-mail ou usuário':'E-mail'}<div className="admin-auth-input"><UserRound className="field-icon" size={27}/><input autoFocus placeholder={mode==='login'?'Digite seu e-mail ou usuário':'Digite seu e-mail'} value={identifier} onChange={e=>setIdentifier(e.target.value)} required autoComplete={mode==='login'?'username':'email'}/></div></label>}
  {mode!=='recover'&&<label>{mode==='reset'?'Nova senha':'Senha'}<div className="admin-auth-input"><LockKeyhole className="field-icon" size={26}/><input type={showPassword?'text':'password'} placeholder={mode==='reset'?'Digite sua nova senha':'Digite sua senha'} value={password} onChange={e=>setPassword(e.target.value)} required minLength={8} autoComplete={mode==='login'?'current-password':'new-password'}/><button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Ocultar senha':'Mostrar senha'}>{showPassword?<EyeOff size={28}/>:<Eye size={28}/>}</button></div></label>}
  <button className="admin-auth-submit" disabled={loading}>{mode==='login'?'ENTRAR NO SISTEMA':mode==='recover'?'ENVIAR INSTRUÇÕES':mode==='reset'?'SALVAR NOVA SENHA':'CRIAR ADMINISTRADOR'} <ArrowRight size={32}/></button>
- {mode==='login'&&<><button type="button" className="admin-auth-link" onClick={()=>{setMode('recover');setError('');setSuccess('')}}>ESQUECI A SENHA</button><div className="admin-auth-divider"/><button type="button" className="admin-auth-link" onClick={()=>{setMode('bootstrap');setError('');setSuccess('')}}>PRIMEIRO ACESSO / CRIAR ADMINISTRADOR</button></>}
+ {mode==='login'&&<><button type="button" className="admin-auth-link" onClick={()=>{setMode('recover');setError('');setSuccess('')}}>ESQUECI A SENHA</button></>}
  {mode==='recover'&&<button type="button" className="admin-auth-link" onClick={()=>{setMode('login');setError('');setSuccess('')}}>VOLTAR PARA LOGIN</button>}
- {mode==='bootstrap'&&<button type="button" className="admin-auth-link" onClick={()=>{setMode('login');setError('');setSuccess('')}}>JÁ POSSUO ADMINISTRADOR</button>}
  <p className="admin-auth-muted">Acesso administrativo protegido pelo sistema central do NIEGPT.</p>
  </div><Footer/></form></main></>;
 }
