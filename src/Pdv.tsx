@@ -284,6 +284,9 @@ export default function Pdv({ initialLocation = 'camapua', lockLocation = false 
             const detail = byId.get(product.id);
             return detail ? {
               ...product,
+              ean: detail.ean || product.ean,
+              image: detail.image || product.image,
+              imageCandidates: detail.imageCandidates?.length ? detail.imageCandidates : product.imageCandidates,
               stock: detail.stock,
               stockByLocation: detail.stockByLocation,
             } : product;
