@@ -1,5 +1,6 @@
 import { getBlingAccessToken, refreshBlingAccessToken } from './bling-client.js';
 import { noteBlingRateLimit, waitForBlingRateCooldown } from './bling-rate-limit.js';
+import { bumpBlingDataVersion, getBlingCached } from './bling-data-cache.js';
 
 const BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
 const MIN_REQUEST_INTERVAL_MS = 400;
@@ -10,6 +11,13 @@ const RETRYABLE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);
 let nextSlotAt = 0;
 let scheduler: Promise<void> = Promise.resolve();
 
+type CacheableResponse = {
+  status: number;
+  statusText: string;
+  headers: [string, string][];
+  body: string;
+};
+
 export type BlingGatewayOptions = {
   method?: string;
   headers?: Record<string, string>;
@@ -17,6 +25,7 @@ export type BlingGatewayOptions = {
   signal?: AbortSignal;
   timeoutMs?: number;
   retries?: number;
+  cacheTtlMs?: number;
 };
 
 function sleep(ms: number) {
@@ -37,6 +46,53 @@ function retryDelay(attempt: number, response?: Response) {
   const seconds = retryAfter ? Number(retryAfter) : NaN;
   if (Number.isFinite(seconds) && seconds >= 0) return Math.min(10_000, Math.max(1000, seconds * 1000));
   return Math.min(5000, 1000 * 2 ** attempt);
+}
+
+function cacheTtlFor(path: string, options: BlingGatewayOptions) {
+  if ((options.method || 'GET').toUpperCase() !== 'GET') return 0;
+  if (options.cacheTtlMs !== undefined) return Math.max(0, options.cacheTtlMs);
+
+  const parsed = new URL(urlFor(path));
+  const pathname = parsed.pathname;
+  if (pathname === '/Api/v3/produtos') return parsed.searchParams.has('id') ? 120_000 : 60_000;
+  if (pathname === '/Api/v3/depositos') return 10 * 60_000;
+  if (pathname === '/Api/v3/estoques/saldos') return 3_000;
+  if (pathname === '/Api/v3/vendedores') return 10 * 60_000;
+  if (pathname.startsWith('/Api/v3/canais-venda/')) return 10 * 60_000;
+  if (pathname === '/Api/v3/contatos') return 30_000;
+  return 0;
+}
+
+function isMutationThatMayAffectCachedData(path: string) {
+  const pathname = new URL(urlFor(path)).pathname;
+  return [
+    '/Api/v3/produtos',
+    '/Api/v3/depositos',
+    '/Api/v3/estoques',
+    '/Api/v3/pedidos',
+    '/Api/v3/contatos',
+    '/Api/v3/canais-venda',
+    '/Api/v3/vendedores',
+  ].some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function cacheResponse(response: Response): Promise<CacheableResponse> {
+  const headers: [string, string][] = [];
+  response.headers.forEach((value, key) => headers.push([key, value]));
+  return response.text().then(body => ({
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+    body,
+  }));
+}
+
+function responseFromCache(cached: CacheableResponse) {
+  return new Response(cached.body, {
+    status: cached.status,
+    statusText: cached.statusText,
+    headers: cached.headers,
+  });
 }
 
 async function waitForRateSlot() {
@@ -85,14 +141,8 @@ async function requestOnce(path: string, options: BlingGatewayOptions, token: st
   }
 }
 
-export async function blingFetch(path: string, options: BlingGatewayOptions = {}) {
-  const method = (options.method || 'GET').toUpperCase();
-  const retryableMethod = RETRYABLE_METHODS.has(method);
-  const retries = retryableMethod
-    ? Math.max(0, Math.min(MAX_RETRIES, options.retries ?? MAX_RETRIES))
-    : Math.max(0, Math.min(MAX_RETRIES, options.retries ?? 0));
-
-  let token = await getBlingAccessToken();
+async function fetchLive(path: string, options: BlingGatewayOptions, token: string, retries: number, method: string) {
+  let currentToken = token;
   let refreshedAfter401 = false;
 
   for (let attempt = 0; ; attempt += 1) {
@@ -100,7 +150,7 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
 
     let response: Response;
     try {
-      response = await requestOnce(path, options, token);
+      response = await requestOnce(path, options, currentToken);
     } catch (error) {
       if (attempt >= retries) throw error;
       await sleep(retryDelay(attempt));
@@ -110,21 +160,51 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
     if (response.status === 401 && !refreshedAfter401) {
       refreshedAfter401 = true;
       await response.body?.cancel().catch(() => undefined);
-      token = await refreshBlingAccessToken();
+      currentToken = await refreshBlingAccessToken();
       continue;
     }
 
     if (response.status === 429) {
-      const period = await noteBlingRateLimit(response);
-      if (period === 'day') return response;
+      await noteBlingRateLimit(response);
     }
 
-    if (!isRetryableStatus(response.status) || attempt >= retries) return response;
+    if (!isRetryableStatus(response.status) || attempt >= retries) {
+      if (response.ok && method !== 'GET' && isMutationThatMayAffectCachedData(path)) {
+        await bumpBlingDataVersion(`${method}:${new URL(urlFor(path)).pathname}`);
+      }
+      return response;
+    }
 
     const delay = retryDelay(attempt, response);
     await response.body?.cancel().catch(() => undefined);
     await sleep(delay);
   }
+}
+
+export async function blingFetch(path: string, options: BlingGatewayOptions = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+  const retryableMethod = RETRYABLE_METHODS.has(method);
+  const retries = retryableMethod
+    ? Math.max(0, Math.min(MAX_RETRIES, options.retries ?? MAX_RETRIES))
+    : Math.max(0, Math.min(MAX_RETRIES, options.retries ?? 0));
+  const cacheTtlMs = cacheTtlFor(path, options);
+
+  let token = await getBlingAccessToken();
+
+  if (cacheTtlMs > 0) {
+    const cached = await getBlingCached<CacheableResponse>(
+      `response:${method}:${path}`,
+      cacheTtlMs,
+      async () => {
+        const response = await fetchLive(path, options, token, retries, method);
+        const snapshot = await cacheResponse(response.clone());
+        return snapshot.status >= 200 && snapshot.status < 300 ? snapshot : Promise.reject(new Error(`HTTP ${snapshot.status}`));
+      },
+    );
+    return responseFromCache(cached.data);
+  }
+
+  return fetchLive(path, options, token, retries, method);
 }
 
 export async function blingJson<T = unknown>(path: string, options: BlingGatewayOptions = {}) {
