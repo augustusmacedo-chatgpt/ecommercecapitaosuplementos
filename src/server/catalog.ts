@@ -134,9 +134,6 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
   const id = number(product?.id, 0);
   const name = text(product?.nome) || text(product?.descricaoCurta) || 'Produto sem nome';
   const code = text(product?.codigo);
-  // O Bling pode devolver o código de barras com nomes diferentes conforme
-  // o endpoint e o tipo de cadastro. Preservamos o valor exatamente como veio
-  // (inclusive GTIN-12/UPC, GTIN-13/EAN etc.) para a busca do PDV funcionar.
   const ean = text(
     product?.gtin ||
     product?.gtinProduto ||
