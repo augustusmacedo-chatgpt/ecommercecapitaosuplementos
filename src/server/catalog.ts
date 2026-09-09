@@ -31,9 +31,6 @@ export type CatalogProduct = {
   // Compatibility aliases while the storefront transitions to the internal model.
   nome: string;
   codigo: string;
-  ean?: string;
-  gtin?: string;
-  gtinTributario?: string;
   codigoBarras?: string;
   descricaoCurta: string;
   descricao: string;
