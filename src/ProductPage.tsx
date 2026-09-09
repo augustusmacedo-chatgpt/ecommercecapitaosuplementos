@@ -75,7 +75,7 @@ export default function ProductPage({ productId }: { productId: string }) {
     let active = true;
     setLoading(true);
     setError('');
-    fetch(`/api/bling/products?id=${encodeURIComponent(productId)}`, { cache: 'no-store' })
+    fetch(`/api/bling/product-detail?id=${encodeURIComponent(productId)}`, { cache: 'no-store' })
       .then(async response => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.error || `Não foi possível carregar o produto (HTTP ${response.status}).`);

@@ -14,6 +14,7 @@
     "api/bling/order.ts",
     "api/bling/pdv-report.ts",
     "api/bling/pdv-sale.ts",
+    "api/bling/product-detail.ts",
     "api/bling/products.ts",
     "api/bling/status.ts",
     "api/bling/webhook.ts",

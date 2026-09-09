@@ -6,6 +6,7 @@ import { POST as blingOrderPost } from '../api/bling/order.js';
 import { GET as pdvReportGet, POST as pdvReportPost } from '../api/bling/pdv-report.js';
 import { GET as pdvSaleGet, POST as pdvSalePost } from '../api/bling/pdv-sale.js';
 import { GET as blingProductsGet } from '../api/bling/products.js';
+import { GET as blingProductDetailGet } from '../api/bling/product-detail.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
 import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
@@ -31,6 +32,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/pdv-report') { if (request.method === 'GET') return pdvReportGet(request); if (request.method === 'POST') return pdvReportPost(request); }
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
   if (path === '/api/bling/products' && request.method === 'GET') return blingProductsGet(request);
+  if (path === '/api/bling/product-detail' && request.method === 'GET') return blingProductDetailGet(request);
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
   if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost();
   if (path === '/api/bling/webhook') { if (request.method === 'GET') return blingWebhookGet(); if (request.method === 'POST') return blingWebhookPost(request, ctx); }
@@ -48,8 +50,6 @@ export default {
       return dispatch(request, ctx);
     }
 
-    // Site, /admin e demais rotas do React são sempre entregues pelos
-    // Static Assets do próprio Cloudflare Worker.
     return env.ASSETS.fetch(request);
   },
 };
