@@ -1,12 +1,13 @@
-# Cloudflare migration branch trigger verification
+# Cloudflare migration and Bling boundary verification
 name: Cloudflare Migration Check
 
 on:
   push:
     branches:
       - feat/cloudflare-migration
-      - fix/fase1-bling-foundation
-      - fix/fase2-bling-gateway
+      - 'fix/fase*'
+      - 'feat/fase*'
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -23,16 +24,18 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Cloudflare typecheck
         run: npx tsc --noEmit -p tsconfig.cloudflare.json
+      - name: Typecheck
+        run: npm run typecheck
       - name: Build
         run: npm run build
       - name: Verify Bling gateway boundary
         shell: bash
         run: |
           set -euo pipefail
-          matches="$(grep -RIn --include='*.ts' 'https://api\.bling\.com\.br/Api/v3' api src/server || true)"
-          unexpected="$(printf '%s\n' "$matches" | grep -vE '^(api/bling/callback\.ts|src/server/bling-client\.ts|src/server/bling-gateway\.ts):' || true)"
+          matches="$(grep -RIn --include='*.ts' -E 'https://api\\.bling\\.com\\.br/Api/v3|https://bling\\.com\\.br/Api/v3|BLING_API_BASE|BLING_BASE' api src/server || true)"
+          unexpected="$(printf '%s\\n' "$matches" | grep -vE '^(api/bling/callback\\.ts|src/server/bling-client\\.ts|src/server/bling-gateway\\.ts):' || true)"
           if [ -n "$unexpected" ]; then
-            echo "Encontradas chamadas diretas à API do Bling fora da fronteira autorizada:"
-            printf '%s\n' "$unexpected"
+            echo "Encontradas referências diretas à API do Bling fora da fronteira autorizada:"
+            printf '%s\\n' "$unexpected"
             exit 1
           fi
