@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Heart, ShoppingBag } from 'lucide-react';
+import './product-page.css';
 
 type Deposit = { id?: number; nome?: string; saldo?: number; quantidade?: number; saldoVirtual?: number };
 type Product = {
