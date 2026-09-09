@@ -4,9 +4,10 @@ const BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
 const MIN_REQUEST_INTERVAL_MS = Math.ceil(1000 / 3);
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
+const RETRYABLE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);
 
-let queue: Promise<unknown> = Promise.resolve();
-let nextAllowedAt = 0;
+let nextSlotAt = 0;
+let scheduler: Promise<void> = Promise.resolve();
 
 export type BlingGatewayOptions = {
   method?: string;
@@ -37,26 +38,28 @@ function retryDelay(attempt: number, response?: Response) {
   return Math.min(5000, 1000 * 2 ** attempt);
 }
 
-async function enqueue<T>(operation: () => Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
-    const now = Date.now();
-    const wait = Math.max(0, nextAllowedAt - now);
-    if (wait) await sleep(wait);
-    nextAllowedAt = Date.now() + MIN_REQUEST_INTERVAL_MS;
-    return operation();
-  });
-  queue = run.catch(() => undefined);
-  return run;
+async function waitForRateSlot() {
+  let release: () => void = () => undefined;
+  const previous = scheduler;
+  scheduler = new Promise<void>(resolve => { release = resolve; });
+  await previous;
+
+  const now = Date.now();
+  const wait = Math.max(0, nextSlotAt - now);
+  if (wait) await sleep(wait);
+  nextSlotAt = Date.now() + MIN_REQUEST_INTERVAL_MS;
+  release();
 }
 
 async function requestOnce(path: string, options: BlingGatewayOptions, token: string) {
   const controller = new AbortController();
   const timeoutMs = Math.max(1000, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort(options.signal?.reason);
 
   if (options.signal) {
     if (options.signal.aborted) controller.abort(options.signal.reason);
-    else options.signal.addEventListener('abort', () => controller.abort(options.signal?.reason), { once: true });
+    else options.signal.addEventListener('abort', onAbort, { once: true });
   }
 
   try {
@@ -66,46 +69,52 @@ async function requestOnce(path: string, options: BlingGatewayOptions, token: st
     headers.set('enable-jwt', '1');
 
     return await fetch(urlFor(path), {
-      method: options.method || 'GET',
+      method: (options.method || 'GET').toUpperCase(),
       headers,
       body: options.body,
       signal: controller.signal,
     });
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', onAbort);
   }
 }
 
 export async function blingFetch(path: string, options: BlingGatewayOptions = {}) {
-  return enqueue(async () => {
-    let token = await getBlingAccessToken();
-    const retries = Math.max(0, Math.min(MAX_RETRIES, options.retries ?? MAX_RETRIES));
-    let refreshedAfter401 = false;
+  const method = (options.method || 'GET').toUpperCase();
+  const retryableMethod = RETRYABLE_METHODS.has(method);
+  const retries = retryableMethod
+    ? Math.max(0, Math.min(MAX_RETRIES, options.retries ?? MAX_RETRIES))
+    : Math.max(0, Math.min(MAX_RETRIES, options.retries ?? 0));
 
-    for (let attempt = 0; ; attempt += 1) {
-      let response: Response;
-      try {
-        response = await requestOnce(path, options, token);
-      } catch (error) {
-        if (attempt >= retries) throw error;
-        await sleep(retryDelay(attempt));
-        continue;
-      }
+  let token = await getBlingAccessToken();
+  let refreshedAfter401 = false;
 
-      if (response.status === 401 && !refreshedAfter401) {
-        refreshedAfter401 = true;
-        await response.body?.cancel().catch(() => undefined);
-        token = await refreshBlingAccessToken();
-        continue;
-      }
+  for (let attempt = 0; ; attempt += 1) {
+    await waitForRateSlot();
 
-      if (!isRetryableStatus(response.status) || attempt >= retries) return response;
-
-      const delay = retryDelay(attempt, response);
-      await response.body?.cancel().catch(() => undefined);
-      await sleep(delay);
+    let response: Response;
+    try {
+      response = await requestOnce(path, options, token);
+    } catch (error) {
+      if (attempt >= retries) throw error;
+      await sleep(retryDelay(attempt));
+      continue;
     }
-  });
+
+    if (response.status === 401 && !refreshedAfter401) {
+      refreshedAfter401 = true;
+      await response.body?.cancel().catch(() => undefined);
+      token = await refreshBlingAccessToken();
+      continue;
+    }
+
+    if (!isRetryableStatus(response.status) || attempt >= retries) return response;
+
+    const delay = retryDelay(attempt, response);
+    await response.body?.cancel().catch(() => undefined);
+    await sleep(delay);
+  }
 }
 
 export async function blingJson<T = unknown>(path: string, options: BlingGatewayOptions = {}) {
