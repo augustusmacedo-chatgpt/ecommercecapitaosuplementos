@@ -55,7 +55,20 @@ export default function AdminUsers() {
       setError(text); setNeedsBootstrap(text.includes('Acesso administrativo') || text.includes('persistente'));
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch('/api/bling/status', { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (active && response.ok && data.connected) await loadSellers();
+      } catch {
+        // Sem conexão com o Bling, a área de usuários continua funcionando normalmente.
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   function chooseSeller(value: string) { const seller = sellers.find(item => String(item.id) === value); setForm(current => ({ ...current, blingSellerId: value, blingSellerName: seller?.name || '' })); }
   function resetForm() { setForm(emptyForm); setEditing(null); }
