@@ -115,7 +115,8 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
     }
 
     if (response.status === 429) {
-      await noteBlingRateLimit(response);
+      const period = await noteBlingRateLimit(response);
+      if (period === 'day') return response;
     }
 
     if (!isRetryableStatus(response.status) || attempt >= retries) return response;
