@@ -1,4 +1,4 @@
-import { getBlingAccessToken } from './bling-client.js';
+import { getBlingAccessToken, refreshBlingAccessToken } from './bling-client.js';
 
 const BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
 const MIN_REQUEST_INTERVAL_MS = Math.ceil(1000 / 3);
@@ -80,6 +80,7 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
   return enqueue(async () => {
     let token = await getBlingAccessToken();
     const retries = Math.max(0, Math.min(MAX_RETRIES, options.retries ?? MAX_RETRIES));
+    let refreshedAfter401 = false;
 
     for (let attempt = 0; ; attempt += 1) {
       let response: Response;
@@ -91,18 +92,18 @@ export async function blingFetch(path: string, options: BlingGatewayOptions = {}
         continue;
       }
 
-      if (response.status !== 401 || attempt >= retries) {
-        if (!isRetryableStatus(response.status) || attempt >= retries) return response;
-        const delay = retryDelay(attempt, response);
+      if (response.status === 401 && !refreshedAfter401) {
+        refreshedAfter401 = true;
         await response.body?.cancel().catch(() => undefined);
-        await sleep(delay);
+        token = await refreshBlingAccessToken();
         continue;
       }
 
-      // A single 401 recovery is safe: refresh the token through the guarded
-      // OAuth client, then retry the same request once with the fresh token.
+      if (!isRetryableStatus(response.status) || attempt >= retries) return response;
+
+      const delay = retryDelay(attempt, response);
       await response.body?.cancel().catch(() => undefined);
-      token = await getBlingAccessToken();
+      await sleep(delay);
     }
   });
 }
