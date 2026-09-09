@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { get, put, putConditional } from './storage.js';
+import { get, putConditional } from './storage.js';
 
 const LOCK_KEY = 'bling/token-refresh.lock';
-const LOCK_TTL_MS = 15_000;
-const MAX_WAIT_MS = 10_000;
+const LOCK_TTL_MS = 30_000;
+const MAX_WAIT_MS = 15_000;
 const POLL_MS = 150;
 
 type LockRecord = {
@@ -19,16 +19,18 @@ export type BlingRefreshLock = {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function readLock(): Promise<{ record: LockRecord; etag: string } | null> {
+async function readLock(): Promise<{ record: LockRecord | null; etag: string } | null> {
   const result = await get(LOCK_KEY);
   if (!result?.stream || !result.etag) return null;
 
   try {
     const record = JSON.parse(await new Response(result.stream).text()) as LockRecord;
-    if (!record?.owner || !Number.isFinite(record.expiresAt)) return null;
+    if (!record?.owner || !Number.isFinite(record.expiresAt)) {
+      return { record: null, etag: result.etag };
+    }
     return { record, etag: result.etag };
   } catch {
-    return null;
+    return { record: null, etag: result.etag };
   }
 }
 
@@ -44,7 +46,7 @@ async function tryCreateLock(owner: string) {
   return { owner, etag: result.etag } satisfies BlingRefreshLock;
 }
 
-async function tryReplaceExpiredLock(owner: string, expectedEtag: string) {
+async function tryReplaceLock(owner: string, expectedEtag: string) {
   const now = Date.now();
   const record: LockRecord = { owner, acquiredAt: now, expiresAt: now + LOCK_TTL_MS };
   const result = await putConditional(
@@ -70,8 +72,8 @@ export async function acquireBlingRefreshLock(): Promise<BlingRefreshLock> {
       continue;
     }
 
-    if (current.record.expiresAt <= Date.now()) {
-      const replaced = await tryReplaceExpiredLock(owner, current.etag);
+    if (!current.record || current.record.expiresAt <= Date.now()) {
+      const replaced = await tryReplaceLock(owner, current.etag);
       if (replaced) return replaced;
       await sleep(POLL_MS);
       continue;
@@ -85,7 +87,7 @@ export async function acquireBlingRefreshLock(): Promise<BlingRefreshLock> {
 
 export async function releaseBlingRefreshLock(lock: BlingRefreshLock) {
   const current = await readLock();
-  if (!current || current.record.owner !== lock.owner) return;
+  if (!current?.record || current.record.owner !== lock.owner) return;
 
   const released: LockRecord = {
     ...current.record,
