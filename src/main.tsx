@@ -7,6 +7,7 @@ import CheckoutValidation from './CheckoutValidation';
 import CheckoutLoyalty from './CheckoutLoyalty';
 import ContaPage from './ContaPage';
 import OrderPage from './OrderPage';
+import ProductPage from './ProductPage';
 import ReconnectPage from './ReconnectPage';
 import PdvAuthGate from './PdvAuthGate';
 import PdvReport from './PdvReport';
@@ -28,6 +29,8 @@ function Page(){
   if(location.pathname==='/cadastro')return <CheckoutIdentityPage/>;
   if(location.pathname==='/conta')return <ContaPage/>;
   if(location.pathname==='/pedido')return <OrderPage/>;
+  const productMatch=location.pathname.match(/^\/produto\/(\d+)\/?$/);
+  if(productMatch)return <ProductPage productId={productMatch[1]}/>;
   return <Root/>;
 }
 registerAppWorker();createRoot(document.getElementById('root')!).render(<StrictMode><Page/><CheckoutValidation/><CheckoutFlowBridge/><PdvClosingEnhancer/><PdvRecompraAlertsEnhancer/><PdvRealSaleEnhancer/></StrictMode>);
