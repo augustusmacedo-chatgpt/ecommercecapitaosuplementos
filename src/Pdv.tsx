@@ -22,6 +22,22 @@ const LOCATIONS: Record<'camapua' | 'newfit', LocationConfig> = {
 const SELLERS = ['AUGUSTUS', 'HEVELLYN', 'ELIAS'];
 const PDV_ACTIVE_SELLER_KEY = 'capitao-pdv-active-seller-v1';
 
+// O Bling limita a frequência de requisições. As imagens que não vierem na
+// listagem são hidratadas uma por vez, evitando que dezenas de cards disparem
+// GET /produtos/{id} simultaneamente e acabem deixando parte do catálogo sem foto.
+let productImageQueue: Promise<void> = Promise.resolve();
+function queueProductImageDetail<T>(task: () => Promise<T>) {
+  const next = productImageQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const result = await task();
+      await new Promise(resolve => window.setTimeout(resolve, 360));
+      return result;
+    });
+  productImageQueue = next.then(() => undefined, () => undefined);
+  return next;
+}
+
 function readActiveSeller() {
   try {
     const saved = localStorage.getItem(PDV_ACTIVE_SELLER_KEY);
@@ -133,9 +149,13 @@ function ProductImage({ product, className }: { product: Product; className?: st
     if (hydrated) return;
     setHydrated(true);
     try {
-      const response = await fetch('/api/bling/products?id=' + encodeURIComponent(String(product.id)), { cache: 'no-store' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data?.product) return;
+      const data = await queueProductImageDetail(async () => {
+        const response = await fetch('/api/bling/products?id=' + encodeURIComponent(String(product.id)), { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload?.product) return null;
+        return payload;
+      });
+      if (!data?.product) return;
       const detailCandidates = imageCandidatesOf(data.product);
       if (!detailCandidates.length) return;
       setCandidates(current => Array.from(new Set([...current, ...detailCandidates].filter(Boolean))));
