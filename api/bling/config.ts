@@ -8,15 +8,19 @@ function storageUnavailable() {
   );
 }
 
-export async function GET() {
+export async function GET(request?: Request) {
   if (!hasPersistentStorage()) return storageUnavailable();
   try {
     const data = await loadStoredData();
+    const reveal = request ? new URL(request.url).searchParams.get('reveal') === '1' : false;
+    const storedSecret = data?.clientSecret || '';
     return json(
       {
         clientId: data?.clientId || '',
-        configured: Boolean(data?.clientId && data?.clientSecret),
-        secretConfigured: Boolean(data?.clientSecret),
+        configured: Boolean(data?.clientId && storedSecret),
+        secretConfigured: Boolean(storedSecret),
+        secretMask: storedSecret ? '•'.repeat(Math.max(32, storedSecret.length)) : '',
+        ...(reveal && storedSecret ? { clientSecret: storedSecret } : {}),
         inviteLink: data?.inviteLink || '',
       },
       200,
@@ -78,6 +82,7 @@ export async function POST(request: Request) {
         ok: true,
         configured: true,
         secretConfigured: true,
+        secretMask: '•'.repeat(Math.max(32, clientSecret.length)),
         authorizationReset: credentialsChanged,
       },
       200,
