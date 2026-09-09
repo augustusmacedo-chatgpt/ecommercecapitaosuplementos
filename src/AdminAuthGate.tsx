@@ -3,7 +3,7 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, LogOut, ShieldCheck, UserRound } 
 import Admin from './Admin';
 
 type User={id:string;name:string;username:string;email:string;role:'ADMIN'|'OPERATOR'};
-type Mode='login'|'recover'|'reset';
+type Mode='login'|'recover'|'reset'|'bootstrap';
 
 const css=`
 @font-face{font-family:Modpot;src:url('/fonts/modpot-login.otf') format('opentype');font-display:swap}
