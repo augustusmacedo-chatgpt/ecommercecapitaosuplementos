@@ -118,12 +118,58 @@ function mapCatalogProducts(data: any): Product[] {
   }).filter((p: Product) => Number.isFinite(p.id) && p.id > 0);
 }
 function ProductImage({ product, className }: { product: Product; className?: string }) {
-  const candidates = product.imageCandidates?.length ? product.imageCandidates : (product.image ? [product.image] : []);
+  const baseCandidates = product.imageCandidates?.length ? product.imageCandidates : (product.image ? [product.image] : []);
+  const [candidates, setCandidates] = useState<string[]>(baseCandidates);
   const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); }, [product.id, candidates.join('|')]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setCandidates(baseCandidates);
+    setIndex(0);
+    setHydrated(false);
+  }, [product.id, baseCandidates.join('|')]);
+
+  const hydrateFromDetail = async () => {
+    if (hydrated) return;
+    setHydrated(true);
+    try {
+      const response = await fetch('/api/bling/products?id=' + encodeURIComponent(String(product.id)), { cache: 'no-store' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.product) return;
+      const detailCandidates = imageCandidatesOf(data.product);
+      if (!detailCandidates.length) return;
+      setCandidates(current => {
+        const merged = Array.from(new Set([...current, ...detailCandidates].filter(Boolean)));
+        return merged;
+      });
+    } catch {
+      // Mantém o fallback visual do PDV sem quebrar o card.
+    }
+  };
+
   const src = candidates[index];
-  if (!src) return <div className="noimg">CAPITÃO</div>;
-  return <img className={className} src={src} alt="" loading="lazy" onError={() => setIndex(current => current + 1)} />;
+  if (!src) {
+    if (!hydrated) {
+      void hydrateFromDetail();
+      return <div className="noimg">CARREGANDO</div>;
+    }
+    return <div className="noimg">CAPITÃO</div>;
+  }
+
+  return <img
+    className={className}
+    src={src}
+    alt=""
+    loading="lazy"
+    onError={() => {
+      if (index + 1 < candidates.length) {
+        setIndex(current => current + 1);
+        return;
+      }
+      void hydrateFromDetail();
+      setIndex(current => current + 1);
+    }}
+  />;
 }
 function paymentIcon(type: Payment['icon']) { if (type === 'credit' || type === 'debit') return <CreditCard size={17} />; if (type === 'pix') return <QrCode size={17} />; if (type === 'cash') return <Banknote size={17} />; return <FileText size={17} />; }
 
