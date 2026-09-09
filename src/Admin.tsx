@@ -24,13 +24,19 @@ export default function Admin() {
         // A conexão termina primeiro; a carga acontece já dentro do painel para
         // não atrasar o callback do Bling nem deixar a autorização presa em timeout.
         const params = new URLSearchParams(window.location.search);
-        if (isConnected && params.get('bling') === 'connected') {
+
+        // Sempre que o Admin abrir com o Bling já conectado, carregamos o
+        // catálogo novamente. O parâmetro ?bling=connected é apenas um sinal
+        // temporário do retorno OAuth e não pode ser a condição para os
+        // produtos existirem na tela após F5 ou uma nova abertura do painel.
+        if (isConnected) {
           await loadCatalogPreview(true);
-          if (active) {
-            params.delete('bling');
-            const cleanQuery = params.toString();
-            window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash);
-          }
+        }
+
+        if (isConnected && params.get('bling') === 'connected' && active) {
+          params.delete('bling');
+          const cleanQuery = params.toString();
+          window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash);
         }
       } catch { if (active) setConnected(false); } } catch (err) { if (active) setError(err instanceof Error ? err.message : 'Não foi possível carregar a configuração do Bling.'); } finally { if (active) setLoadingConfig(false); } } load(); return () => { active = false; }; }, []);
   async function loadCatalogPreview(force = false) { if (!connected && !force) { setCatalogError('Conecte o Bling antes de carregar o catálogo.'); return; } setCatalogError(''); try { const productsData = await readJson(await fetch('/api/bling/products?pagina=1&limite=100&todos=1', { cache: 'no-store' })); const returnedProducts = Array.isArray(productsData.products) ? productsData.products : []; setCatalogTotal(Number(productsData.total ?? returnedProducts.length)); setBlingProducts(returnedProducts.slice(0, 4).map(toPreviewProduct)); } catch (productError) { setCatalogError(productError instanceof Error ? productError.message : 'Não foi possível carregar o catálogo do Bling.'); } }
