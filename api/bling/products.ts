@@ -132,26 +132,40 @@ export async function GET(request: Request) {
         .toUpperCase();
 
       const depositName = (deposit: any) => String(
-        deposit?.descricao || deposit?.nome || deposit?.descricaoDeposito || ''
+        deposit?.descricao ||
+        deposit?.nome ||
+        deposit?.descricaoDeposito ||
+        deposit?.deposito?.descricao ||
+        deposit?.deposito?.nome ||
+        ''
       ).trim();
 
       // Regra operacional:
-      // - CAMAPUÃ lê o depósito real "CAPITÃO SUPLEMENTOS CAMAPUÃ".
-      // - NEWFIT lê o depósito real "CAPITÃO SUPLEMENTOS NEWFIT".
-      // "Matriz" é a unidade de negócio exibida na abertura do caixa da
-      // Camapuã e não deve substituir o depósito real na leitura de estoque.
-      const findDeposit = (primary: string, legacy: string[]) =>
-        deposits.find((deposit: any) => normDeposit(depositName(deposit)) === primary) ||
-        deposits.find((deposit: any) => legacy.includes(normDeposit(depositName(deposit)))) ||
-        null;
+      // - CAMAPUÃ lê o depósito real da Camapuã.
+      // - NEWFIT lê exclusivamente o depósito da unidade Newfit.
+      // Alguns cadastros do Bling possuem separadores, hífens ou pequenas
+      // variações no nome. Por isso normalizamos e aceitamos aliases seguros,
+      // sem jamais usar o saldo agregado de uma loja na outra.
+      const findDeposit = (exactNames: string[], keywords: string[]) => {
+        const exact = deposits.find((deposit: any) => {
+          const name = normDeposit(depositName(deposit));
+          return exactNames.includes(name);
+        });
+        if (exact) return exact;
+
+        return deposits.find((deposit: any) => {
+          const name = normDeposit(depositName(deposit));
+          return keywords.every(keyword => name.includes(keyword));
+        }) || null;
+      };
 
       const camapuaDeposit = findDeposit(
-        'CAPITAO SUPLEMENTOS CAMAPUA',
-        ['ESTOQUE MATRIZ', 'MATRIZ'],
+        ['CAPITAO SUPLEMENTOS CAMAPUA', 'ESTOQUE MATRIZ', 'MATRIZ'],
+        ['CAMAPUA'],
       );
       const newfitDeposit = findDeposit(
-        'CAPITAO SUPLEMENTOS NEWFIT',
-        ['ESTOQUE NEWFIT'],
+        ['CAPITAO SUPLEMENTOS NEWFIT', 'ESTOQUE NEWFIT', 'NEWFIT'],
+        ['NEWFIT'],
       );
 
       async function getDepositStock(deposit: any) {
@@ -164,7 +178,13 @@ export async function GET(request: Request) {
         const payload = response.ok ? await response.json() as { data?: any[] } : { data: [] };
         const byProduct = new Map<number, number>();
         for (const item of Array.isArray(payload.data) ? payload.data : []) {
-          const productId = Number(item?.produto?.id ?? item?.idProduto ?? item?.id);
+          const productId = Number(
+            item?.produto?.id ??
+            item?.produto?.codigo ??
+            item?.idProduto ??
+            item?.produtoId ??
+            item?.id
+          );
           if (!productId) continue;
           const saldo = Number(
             item?.saldoVirtualTotal ??
@@ -173,6 +193,7 @@ export async function GET(request: Request) {
             item?.saldoFisico ??
             item?.saldo ??
             item?.quantidade ??
+            item?.estoque ??
             0
           );
           byProduct.set(productId, Number.isFinite(saldo) ? saldo : 0);
