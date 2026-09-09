@@ -185,21 +185,6 @@ export async function GET(request: Request) {
         getDepositStock(newfitDeposit),
       ]);
 
-      // A listagem do Bling pode trazer uma versão resumida do produto, sem
-      // GTIN/EAN e sem todas as mídias. Quando o PDV precisa de produtos
-      // específicos, carregamos o detalhe completo de cada um com cadência
-      // abaixo do limite global de 3 requisições/segundo da API.
-      const detailsById = new Map<number, CatalogProduct>();
-      for (let index = 0; index < ids.length; index += 1) {
-        if (index > 0) await sleep(380);
-        try {
-          const detail = await getDetail(ids[index], token);
-          if (detail?.id) detailsById.set(detail.id, detail);
-        } catch (error) {
-          console.warn('Bling product detail hydration failed:', ids[index], error);
-        }
-      }
-
       const products = ids.map(productId => {
         const idNumber = Number(productId);
         const camapuaSaldo = camapuaStock.byProduct.get(idNumber) ?? 0;
@@ -223,9 +208,7 @@ export async function GET(request: Request) {
           } : null,
         ].filter(Boolean);
 
-        const detail = detailsById.get(idNumber);
         return {
-          ...(detail || { id: idNumber }),
           id: idNumber,
           estoque: {
             saldoVirtualTotal: 0, // o PDV usa somente os saldos por depósito; soma agregada é responsabilidade do site.
