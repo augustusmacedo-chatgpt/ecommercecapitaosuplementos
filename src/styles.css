@@ -113,7 +113,8 @@ button { cursor: pointer; }
 
 .admin-shell { min-height: 100vh; background: #f5f6f8; color: #171717; }
 .admin-header { background: #fff; border-bottom: 1px solid #dfe3e8; color: #171717; padding: 28px max(28px, calc((100% - 1360px) / 2)); display: flex; justify-content: space-between; align-items: center; gap: 30px; }
-.admin-eyebrow, .panel-label { display: block; color: #9a731c; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.admin-eyebrow { display: block; color: #9a731c; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.panel-label { display: block; color: #9a731c; font-size: 9px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
 .admin-header h1 { margin: 7px 0 5px; font-size: clamp(26px, 3.5vw, 38px); letter-spacing: -.03em; }
 .admin-header p { margin: 0; color: #6d737a; font-size: 12px; }
 .admin-back { border: 1px solid #cfd5dc; border-radius: 6px; padding: 11px 15px; font-size: 11px; font-weight: 700; background: #fff; }
