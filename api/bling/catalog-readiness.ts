@@ -35,8 +35,10 @@ export async function GET(request: Request) {
   const storageReady = hasStorage();
   const indexReady = Boolean(index?.length);
   const syncComplete = Boolean(state?.complete);
-  const lockActive = Boolean(lock?.expiresAt && Number(lock.expiresAt) > now);
-  const cooldownActive = Boolean(cooldown?.expiresAt && Number(cooldown.expiresAt) > now);
+  const lockExpiresAt = Number(lock?.expiresAt || 0);
+  const cooldownExpiresAt = Number(cooldown?.expiresAt || 0);
+  const lockActive = lockExpiresAt > now;
+  const cooldownActive = cooldownExpiresAt > now;
   const ready = storageReady && indexReady && !cooldownActive && !lockActive;
 
   return json({
@@ -61,8 +63,8 @@ export async function GET(request: Request) {
       updatedAt: state?.updatedAt || null,
     },
     blocking: {
-      lockExpiresAt: lockActive ? Number(lock.expiresAt) : null,
-      cooldownExpiresAt: cooldownActive ? Number(cooldown.expiresAt) : null,
+      lockExpiresAt: lockActive ? lockExpiresAt : null,
+      cooldownExpiresAt: cooldownActive ? cooldownExpiresAt : null,
       cooldownPeriod: cooldownActive ? cooldown?.period || null : null,
     },
     checkedAt: new Date(now).toISOString(),
