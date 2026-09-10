@@ -10,7 +10,7 @@ import { GET as blingProductDetailGet } from '../api/bling/product-detail.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
 import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
-import { GET as catalogSyncGet, POST as catalogSyncPost } from '../api/bling/catalog-sync.js';
+import { GET as catalogSyncGet, POST as catalogSyncPost } from '../api/bling/catalog-sync-guarded.js';
 import { GET as customersGet, POST as customersPost } from '../api/customers/[action].js';
 import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '../api/pontos/[action].js';
 import { catalogIndexResponse } from '../src/server/catalog-index-service.js';
