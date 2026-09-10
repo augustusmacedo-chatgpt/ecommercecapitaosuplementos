@@ -6,6 +6,7 @@ import { POST as blingOrderPost } from '../api/bling/order.js';
 import { GET as pdvReportGet, POST as pdvReportPost } from '../api/bling/pdv-report.js';
 import { GET as pdvSaleGet, POST as pdvSalePost } from '../api/bling/pdv-sale.js';
 import { GET as blingProductsGet } from '../api/bling/products.js';
+import { GET as pdvCatalogGet } from '../api/bling/pdv-catalog.js';
 import { GET as blingProductDetailGet } from '../api/bling/product-detail.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
 import { POST as blingResetPost } from '../api/bling/reset.js';
@@ -36,6 +37,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/order' && request.method === 'POST') return blingOrderPost(request);
   if (path === '/api/bling/pdv-report') { if (request.method === 'GET') return pdvReportGet(request); if (request.method === 'POST') return pdvReportPost(request); }
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
+  if (path === '/api/bling/pdv-catalog' && request.method === 'GET') return pdvCatalogGet(request);
   if (path === '/api/bling/products' && request.method === 'GET') {
     const indexed = await catalogIndexResponse(request);
     if (indexed) return indexed;
