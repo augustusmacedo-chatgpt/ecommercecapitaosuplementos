@@ -1,6 +1,7 @@
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import Root from './AdminRoute';
+import AdminCatalogControl from './AdminCatalogControl';
 import CheckoutPage, { hasValidCheckoutSession } from './CheckoutPage';
 import CheckoutIdentityPage from './CheckoutIdentityPage';
 import CheckoutValidation from './CheckoutValidation';
@@ -18,6 +19,7 @@ import './styles.css';
 function registerAppWorker(){if(!('serviceWorker'in navigator))return;window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(error=>console.warn('Service Worker Capitão:',error)))}
 function CheckoutFlowBridge(){useEffect(()=>{const go=()=>{if(location.pathname==='/checkout'&&!hasValidCheckoutSession())location.replace('/cadastro')};go();const timer=window.setInterval(go,5000);if(location.pathname==='/'){const d=localStorage.getItem('capitao-verified-document'),e=localStorage.getItem('capitao-verified-email'),a=localStorage.getItem('capitao-verified-at');if((d||e)&&!a){localStorage.setItem('capitao-verified-at',String(Date.now()));try{if(JSON.parse(localStorage.getItem('capitao-cart')||'[]').length)location.replace('/checkout')}catch{}}}const checkout=()=>{document.querySelectorAll<HTMLButtonElement>('.cart-checkout').forEach(button=>{if(button.textContent!=='IR PARA O CHECKOUT')button.textContent='IR PARA O CHECKOUT';if(button.dataset.checkoutBound==='true')return;button.dataset.checkoutBound='true';button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();location.href=hasValidCheckoutSession()?'/checkout':'/cadastro'},true)})};const account=()=>{const link=document.querySelector<HTMLAnchorElement>('.header-login');if(!link)return;const logged=Boolean(localStorage.getItem('capitao-customer-session'));link.href=logged?'/conta':'/cadastro';const label=link.querySelector('span');if(label)label.textContent=logged?'Minha conta':'Login'};const order=()=>{if(location.pathname!=='/checkout')return;const success=document.querySelector<HTMLElement>('.checkout-success'),button=success?.querySelector<HTMLAnchorElement>('a.checkout-primary');if(!success||!button)return;button.textContent='CONTINUAR COMPRANDO';if(success.querySelector('.checkout-view-order'))return;const view=document.createElement('a');view.href='/pedido';view.className='checkout-primary checkout-view-order';view.textContent='VER PEDIDO';success.insertBefore(view,button)};checkout();account();order();const observer=new MutationObserver(()=>{checkout();account();order()});observer.observe(document.body,{childList:true,subtree:true});return()=>{observer.disconnect();window.clearInterval(timer)}},[]);return null}
 function Page(){
+  if(location.pathname==='/admin/catalogo')return <AdminCatalogControl/>;
   if(location.pathname==='/pdv')return <PdvAuthGate/>;
   if(location.pathname==='/pdvreport')return <PdvReport/>;
   if(location.pathname==='/checkout'){
