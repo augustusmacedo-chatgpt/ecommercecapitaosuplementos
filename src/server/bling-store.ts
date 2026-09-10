@@ -8,6 +8,8 @@ export type BlingStoredData = BlingConfig & {
   refreshToken?: string;
   accessToken?: string;
   accessTokenExpiresAt?: number;
+  refreshTokenUpdatedAt?: number;
+  refreshTokenExpiresAt?: number;
   tokenUpdatedAt?: number;
   lastTokenRefreshAt?: number;
   lastWebhookEventId?: string;

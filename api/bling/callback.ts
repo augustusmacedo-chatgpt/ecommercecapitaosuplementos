@@ -1,5 +1,8 @@
 import { STATE_COOKIE, clearCookie, json, parseCookies } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+import { bumpBlingDataVersion } from '../../src/server/bling-data-cache.js';
+
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
   if (request.method !== 'GET') return json({ error: 'Método não permitido.' }, 405);
@@ -46,11 +49,16 @@ export async function GET(request: Request) {
     });
 
     if (!tokenResponse.ok) {
-      console.error('Bling OAuth token error:', tokenResponse.status, await tokenResponse.text());
+      const details = await tokenResponse.text();
+      console.error('Bling OAuth token error:', tokenResponse.status, details.slice(0, 1000));
       return fail('O Bling recusou a troca do código de autorização. Confira o Client ID, Client Secret e a URL de redirecionamento.', 502);
     }
 
-    const tokens = await tokenResponse.json() as { access_token?: string; refresh_token?: string; expires_in?: number };
+    const tokens = await tokenResponse.json() as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
     if (!tokens.access_token || !tokens.refresh_token) return fail('O Bling não retornou os tokens esperados.', 502);
 
     const expiresIn = Math.max(60, Number(tokens.expires_in ?? 21600));
@@ -60,9 +68,12 @@ export async function GET(request: Request) {
       accessToken: tokens.access_token,
       accessTokenExpiresAt: now + expiresIn * 1000,
       refreshToken: tokens.refresh_token,
+      refreshTokenUpdatedAt: now,
+      refreshTokenExpiresAt: now + REFRESH_TOKEN_TTL_MS,
       tokenUpdatedAt: now,
       lastTokenRefreshAt: now,
     });
+    await bumpBlingDataVersion('oauth-connected');
 
     const redirect = new URL('/admin', request.url);
     redirect.searchParams.set('bling', 'connected');
@@ -87,5 +98,5 @@ function errorPage(message: string) {
 }
 
 function escapeHtml(value: string) {
-  return value.replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"' : '&quot;' }[char] || char));
+  return value.replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char] || char));
 }

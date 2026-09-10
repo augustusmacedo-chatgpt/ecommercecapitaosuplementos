@@ -1,0 +1,1 @@
+F12/F13: reconciliacao Bling x R2 e lock distribuido da sincronizacao.

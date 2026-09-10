@@ -28,12 +28,8 @@ export type CatalogProduct = {
   images: CatalogImage[];
   source: 'bling';
   updatedAt: string;
-  // Compatibility aliases while the storefront transitions to the internal model.
   nome: string;
   codigo: string;
-  ean?: string;
-  gtin?: string;
-  gtinTributario?: string;
   codigoBarras?: string;
   descricaoCurta: string;
   descricao: string;
@@ -130,16 +126,16 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
   const thumbnailImage = images.find(item => item.type === 'thumbnail')?.url;
   const deposits = normalizeCatalogDeposits(product);
   const stock = catalogStock(product);
-  const active = text(product?.situacao).toUpperCase() === 'A' || product?.situacao === true || !product?.situacao;
+  const situation = text(product?.situacao).toUpperCase();
+  const active = typeof product?.active === 'boolean'
+    ? product.active
+    : situation === 'A';
   const priceValue = number(product?.preco, NaN);
   const price = Number.isFinite(priceValue) ? priceValue : null;
   const category = text(product?.categoria?.nome) || text(product?.categoria) || 'Suplementos';
   const id = number(product?.id, 0);
   const name = text(product?.nome) || text(product?.descricaoCurta) || 'Produto sem nome';
   const code = text(product?.codigo);
-  // O Bling pode devolver o código de barras com nomes diferentes conforme
-  // o endpoint e o tipo de cadastro. Preservamos o valor exatamente como veio
-  // (inclusive GTIN-12/UPC, GTIN-13/EAN etc.) para a busca do PDV funcionar.
   const ean = text(
     product?.gtin ||
     product?.gtinProduto ||
@@ -188,10 +184,10 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
     imagemOriginal: originalImage,
     imagemMiniatura: thumbnailImage,
     categoria: { nome: category },
-    situacao: active ? 'A' : 'I',
+    situacao: active ? 'A' : (situation || 'I'),
     estoque: {
       saldoVirtualTotal: number(product?.estoque?.saldoVirtualTotal ?? product?.saldoVirtualTotal, stock),
-      depositos,
+      depositos: deposits,
     },
   };
 }

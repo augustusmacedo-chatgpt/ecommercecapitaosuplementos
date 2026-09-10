@@ -1,5 +1,6 @@
 import { STATE_COOKIE, cookie, json } from '../../src/server/bling-shared.js';
 import { loadStoredData, saveStoredData } from '../../src/server/bling-store.js';
+import { sessionUser } from '../lib/pdv-auth.js';
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -7,6 +8,9 @@ export async function GET(request: Request) {
   if (request.method !== 'GET') return json({ error: 'Método não permitido.' }, 405);
 
   try {
+    const user = await sessionUser(request);
+    if (user?.role !== 'ADMIN') return json({ error: 'Acesso administrativo necessário.' }, 403);
+
     const config = await loadStoredData();
     if (!config?.clientId || !config.clientSecret) {
       return json({ error: 'Configure o Client ID e o Client Secret antes de conectar o Bling.' }, 400);

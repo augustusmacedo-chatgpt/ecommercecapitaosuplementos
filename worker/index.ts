@@ -6,11 +6,18 @@ import { POST as blingOrderPost } from '../api/bling/order.js';
 import { GET as pdvReportGet, POST as pdvReportPost } from '../api/bling/pdv-report.js';
 import { GET as pdvSaleGet, POST as pdvSalePost } from '../api/bling/pdv-sale.js';
 import { GET as blingProductsGet } from '../api/bling/products.js';
+import { GET as pdvCatalogGet } from '../api/bling/pdv-catalog.js';
+import { GET as blingProductDetailGet } from '../api/bling/product-detail.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
 import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
+import { GET as catalogSyncGet, POST as catalogSyncPost } from '../api/bling/catalog-sync-guarded.js';
+import { GET as catalogReconcileGet, POST as catalogReconcilePost } from '../api/bling/catalog-reconcile.js';
+import { GET as catalogHealthGet } from '../api/bling/catalog-health.js';
+import { GET as catalogReadinessGet } from '../api/bling/catalog-readiness.js';
 import { GET as customersGet, POST as customersPost } from '../api/customers/[action].js';
 import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '../api/pontos/[action].js';
+import { catalogIndexResponse } from '../src/server/catalog-index-service.js';
 
 type R2ObjectLike = { body: ReadableStream<Uint8Array> | null };
 type R2BucketLike = { get(key: string): Promise<R2ObjectLike | null>; put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>, options?: unknown): Promise<unknown> };
@@ -30,9 +37,19 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/order' && request.method === 'POST') return blingOrderPost(request);
   if (path === '/api/bling/pdv-report') { if (request.method === 'GET') return pdvReportGet(request); if (request.method === 'POST') return pdvReportPost(request); }
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
-  if (path === '/api/bling/products' && request.method === 'GET') return blingProductsGet(request);
+  if (path === '/api/bling/pdv-catalog' && request.method === 'GET') return pdvCatalogGet(request);
+  if (path === '/api/bling/products' && request.method === 'GET') {
+    const indexed = await catalogIndexResponse(request);
+    if (indexed) return indexed;
+    return blingProductsGet(request);
+  }
+  if (path === '/api/bling/product-detail' && request.method === 'GET') return blingProductDetailGet(request);
+  if (path === '/api/bling/catalog-sync') { if (request.method === 'GET') return catalogSyncGet(request); if (request.method === 'POST') return catalogSyncPost(request); }
+  if (path === '/api/bling/catalog-reconcile') { if (request.method === 'GET') return catalogReconcileGet(request); if (request.method === 'POST') return catalogReconcilePost(request); }
+  if (path === '/api/bling/catalog-health' && request.method === 'GET') return catalogHealthGet(request);
+  if (path === '/api/bling/catalog-readiness' && request.method === 'GET') return catalogReadinessGet(request);
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
-  if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost();
+  if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost(request);
   if (path === '/api/bling/webhook') { if (request.method === 'GET') return blingWebhookGet(); if (request.method === 'POST') return blingWebhookPost(request, ctx); }
   if (path.startsWith('/api/customers/')) { if (request.method === 'GET') return customersGet(request); if (request.method === 'POST') return customersPost(request); }
   if (path.startsWith('/api/pontos/')) { if (request.method === 'GET') return pontosGet(request); if (request.method === 'POST') return pontosPost(request); if (request.method === 'DELETE') return pontosDelete(request); }
@@ -43,13 +60,7 @@ export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionCtx): Promise<Response> {
     setStorage(env);
     const url = new URL(request.url);
-
-    if (url.pathname.startsWith('/api/')) {
-      return dispatch(request, ctx);
-    }
-
-    // Site, /admin e demais rotas do React são sempre entregues pelos
-    // Static Assets do próprio Cloudflare Worker.
+    if (url.pathname.startsWith('/api/')) return dispatch(request, ctx);
     return env.ASSETS.fetch(request);
   },
 };
