@@ -1,0 +1,141 @@
+/* Capitão Suplementos — responsive layer
+   Mobile-first adjustments are intentionally isolated from the main design stylesheet.
+   The layout responds to viewport width, orientation and touch-friendly pointer targets.
+*/
+
+html, body, #root { width: 100%; min-width: 0; }
+img, svg, video, canvas { max-width: 100%; }
+button, a, input, select, textarea { max-width: 100%; }
+
+/* Large desktops / TV */
+@media (min-width: 1440px) {
+  .container { width: min(1520px, calc(100% - 96px)); }
+  .header-main { min-height: 92px; grid-template-columns: minmax(190px, 1fr) minmax(420px, 620px) minmax(190px, 1fr); }
+  .product-grid { gap: 18px; }
+  .product-media { height: clamp(285px, 20vw, 360px); }
+  .section { padding-top: 60px; padding-bottom: 60px; }
+  .nav-inner { min-height: 54px; }
+}
+
+/* Laptop / small desktop */
+@media (min-width: 1001px) and (max-width: 1280px) {
+  .container { width: min(1160px, calc(100% - 48px)); }
+  .header-main { grid-template-columns: 170px minmax(280px, 1fr) 170px; gap: 18px; }
+  .product-media { height: 260px; }
+}
+
+/* Tablet landscape / small laptops */
+@media (min-width: 681px) and (max-width: 1000px) {
+  .container { width: calc(100% - 40px); max-width: 900px; }
+  .header { position: sticky; top: 0; }
+  .header-main { min-height: auto; grid-template-columns: 150px 1fr 150px; padding: 10px 0; }
+  .search-wrap { position: static; transform: none; width: 100%; }
+  .product-media { height: 250px; }
+  .category-art .placeholder { height: 120px; }
+  .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+}
+
+/* Phones and narrow tablets */
+@media (max-width: 680px) {
+  .container { width: calc(100% - 24px); max-width: none; }
+  .announcement { min-height: 34px; height: auto; padding: 8px 12px; text-align: center; line-height: 1.25; white-space: normal; }
+
+  .header { position: sticky; top: 0; }
+  .header-main { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "brand actions" "search search"; gap: 10px 8px; padding: 10px 0 12px; min-height: 0; }
+  .brand { grid-area: brand; width: 132px; margin: 0; justify-self: start; }
+  .logo-placeholder, .logo-image { width: 132px; height: 48px; object-position: left center; }
+  .header-actions { grid-area: actions; gap: 2px; justify-self: end; }
+  .header-actions button { min-width: 40px; min-height: 40px; padding: 7px; justify-content: center; }
+  .search-wrap { grid-area: search; position: static; transform: none; width: 100%; min-width: 0; height: 44px; padding: 0 12px; }
+
+  .category-nav { overflow: hidden; }
+  .nav-inner { min-height: 44px; gap: 22px; padding: 0 0 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; justify-content: flex-start; }
+  .nav-inner::-webkit-scrollbar { display: none; }
+  .nav-inner a { flex: 0 0 auto; min-height: 42px; font-size: 10px; }
+
+  .hero-banner { padding-top: 12px; }
+  .hero-banner > .placeholder { height: clamp(170px, 53vw, 240px); min-height: 0; }
+  .carousel-arrow { width: 34px; height: 34px; }
+  .carousel-arrow.left { left: 8px; }
+  .carousel-arrow.right { right: 8px; }
+
+  .section { padding: 32px 0; }
+  .section-heading { margin-bottom: 18px; }
+  .section-heading p { font-size: 9px; }
+  .section-heading h2 { font-size: clamp(24px, 7vw, 31px); line-height: 1.02; }
+
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .product-card { min-width: 0; }
+  .product-media { height: auto; aspect-ratio: 1 / 1.06; padding: 10px; }
+  .badge { top: 8px; left: 8px; padding: 5px 6px; font-size: 8px; }
+  .favorite { right: 8px; top: 8px; width: 30px; height: 30px; }
+  .product-body { padding: 0 10px 10px; min-height: 184px; }
+  .tag-row { margin-bottom: 7px; }
+  .tag-row span { font-size: 7px; padding: 3px 5px; }
+  .product-body h3 { margin-bottom: 10px; font-size: 12px; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  .old-price { font-size: 10px; }
+  .product-body strong { font-size: 18px; }
+  .product-body small { font-size: 9px; }
+  .product-button { min-height: 42px; height: auto; padding: 10px 8px; font-size: 9px; }
+  .catalog-toolbar { align-items: stretch; flex-direction: column; gap: 8px; }
+  .catalog-toolbar button { min-height: 40px; }
+
+  .category-art-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .category-art .placeholder { height: auto; aspect-ratio: 1 / .72; min-height: 90px; }
+  .category-art strong { font-size: 11px; }
+
+  .goal-grid, .learning-grid, .final-grid { grid-template-columns: 1fr; }
+  .goal-banner { min-height: 210px; }
+  .goal-banner strong { left: 18px; bottom: 46px; max-width: 76%; font-size: clamp(26px, 10vw, 42px); }
+  .goal-banner span { left: 18px; bottom: 17px; }
+  .learning-card { min-height: 160px; padding: 18px; }
+  .final-card { min-height: 150px; padding: 20px; gap: 15px; }
+  .final-card strong { font-size: 21px; }
+  .brand-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .brand-list a { min-height: 68px; font-size: 12px; }
+  .brand-list a:nth-child(odd) { border-right: 1px solid #ddd; }
+  .brand-list a:nth-child(even) { border-right: 0; }
+  .footer { padding-top: 36px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+  .footer-bottom { margin-top: 26px; line-height: 1.45; }
+
+  .benefits-float { width: 74px; height: 74px; right: 10px; bottom: 10px; border-width: 2px; }
+  .benefits-float span { font-size: 7px; padding: 4px 0; }
+  .benefits-float strong { font-size: 9px; }
+
+  /* Generic layouts used by account, checkout and order surfaces. */
+  .loyalty-page, .identity-page, .order-page, .reconnect-page { width: calc(100% - 24px) !important; max-width: none !important; }
+  .loyalty-top, .identity-card, .order-top { gap: 10px; }
+  .identity-card, .checkout-card, .order-card { width: 100% !important; max-width: none !important; }
+  table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Very narrow phones */
+@media (max-width: 380px) {
+  .container { width: calc(100% - 18px); }
+  .brand, .logo-placeholder, .logo-image { width: 116px; }
+  .header-actions button { min-width: 36px; }
+  .header-actions { gap: 0; }
+  .product-grid { gap: 8px; }
+  .product-body { padding-left: 8px; padding-right: 8px; }
+  .product-body h3 { font-size: 11px; }
+  .product-body strong { font-size: 17px; }
+}
+
+/* Landscape phones */
+@media (max-width: 900px) and (orientation: landscape) {
+  .hero-banner > .placeholder { height: 190px; }
+  .header-main { padding-top: 8px; padding-bottom: 8px; }
+}
+
+/* Touch devices: prevent cramped controls and accidental overflow. */
+@media (pointer: coarse) {
+  button, .product-button, .nav-inner a { -webkit-tap-highlight-color: transparent; }
+  .header-actions button, .product-button, .catalog-toolbar button { min-height: 42px; }
+}
+
+/* Safe-area support on modern phones. */
+@supports (padding: max(0px)) {
+  .header-main { padding-left: max(0px, env(safe-area-inset-left)); padding-right: max(0px, env(safe-area-inset-right)); }
+  .benefits-float { right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
+}
