@@ -1,11 +1,14 @@
 import { get, put } from './storage.js';
+import { normalizeCatalogProduct, type CatalogProduct } from './catalog.js';
 
 const PRODUCT_PREFIX = 'bling/domain/products/';
 const STOCK_PREFIX = 'bling/domain/stocks/';
+const CATALOG_INDEX_KEY = 'bling/domain/catalog-index.json';
 const MAX_PRODUCT_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_STOCK_AGE_MS = 10 * 60 * 1000;
 
 type MirrorRecord = { id: number; data: any; updatedAt: number };
+type CatalogIndexRecord = { version: 1; savedAt: string; products: CatalogProduct[] };
 
 function productKey(id: number) {
   return `${PRODUCT_PREFIX}${id}.json`;
@@ -29,6 +32,110 @@ async function readRecord(key: string): Promise<MirrorRecord | null> {
 
 async function writeRecord(key: string, id: number, data: any) {
   await put(key, JSON.stringify({ id, data, updatedAt: Date.now() }), { contentType: 'application/json' });
+}
+
+async function readCatalogIndexRecord(): Promise<CatalogIndexRecord | null> {
+  try {
+    const result = await get(CATALOG_INDEX_KEY);
+    if (!result?.stream) return null;
+    const record = JSON.parse(await new Response(result.stream).text()) as CatalogIndexRecord;
+    if (record?.version !== 1 || !Array.isArray(record.products)) return null;
+    return record;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCatalogIndex(products: CatalogProduct[]) {
+  await put(CATALOG_INDEX_KEY, JSON.stringify({ version: 1, savedAt: new Date().toISOString(), products }), { contentType: 'application/json' });
+}
+
+export async function loadCatalogIndex() {
+  const record = await readCatalogIndexRecord();
+  return record?.products?.length ? record.products : null;
+}
+
+export async function saveCatalogIndex(products: CatalogProduct[]) {
+  if (!products.length) return;
+  const unique = new Map<number, CatalogProduct>();
+  for (const product of products) {
+    if (Number.isInteger(product?.id) && product.id > 0) unique.set(product.id, product);
+  }
+  await writeCatalogIndex([...unique.values()]);
+}
+
+export async function upsertCatalogIndex(data: any) {
+  const product = normalizeCatalogProduct(data);
+  if (!Number.isInteger(product.id) || product.id <= 0) return;
+  const record = await readCatalogIndexRecord();
+  const products = Array.isArray(record?.products) ? [...record.products] : [];
+  const index = products.findIndex(item => item.id === product.id);
+  if (index >= 0) products[index] = { ...products[index], ...product };
+  else products.push(product);
+  await writeCatalogIndex(products);
+}
+
+export async function removeCatalogIndex(id: number) {
+  if (!Number.isInteger(id) || id <= 0) return;
+  const record = await readCatalogIndexRecord();
+  if (!record?.products?.length) return;
+  const products = record.products.filter(product => product.id !== id);
+  if (products.length !== record.products.length) await writeCatalogIndex(products);
+}
+
+export async function updateCatalogIndexStock(id: number, stock: any) {
+  if (!Number.isInteger(id) || id <= 0) return;
+  const record = await readCatalogIndexRecord();
+  if (!record?.products?.length) return;
+  const index = record.products.findIndex(product => product.id === id);
+  if (index < 0) return;
+
+  const current = record.products[index];
+  const existingDeposits = Array.isArray(current.estoque?.depositos) ? current.estoque.depositos : [];
+  const incomingDeposits = Array.isArray(stock?.depositos) ? stock.depositos : null;
+  let deposits = existingDeposits;
+
+  if (incomingDeposits) {
+    deposits = incomingDeposits.map((deposit: any) => ({
+      id: Number(deposit?.id ?? deposit?.deposito?.id) || undefined,
+      nome: deposit?.nome || deposit?.deposito?.nome || undefined,
+      saldo: Number(deposit?.saldo ?? deposit?.saldoVirtual ?? deposit?.quantidade ?? 0) || 0,
+      quantidade: Number(deposit?.quantidade ?? deposit?.saldoVirtual ?? deposit?.saldo ?? 0) || 0,
+      saldoVirtual: Number(deposit?.saldoVirtual ?? deposit?.saldo ?? deposit?.quantidade ?? 0) || 0,
+      deposito: {
+        id: Number(deposit?.id ?? deposit?.deposito?.id) || undefined,
+        nome: deposit?.nome || deposit?.deposito?.nome || undefined,
+      },
+    }));
+  } else {
+    const incoming = stock?.deposito;
+    const incomingId = Number(incoming?.id) || 0;
+    if (incomingId) {
+      const patch = {
+        id: incomingId,
+        saldo: Number(incoming?.saldoVirtual ?? incoming?.saldoFisico ?? stock?.quantidade ?? 0) || 0,
+        quantidade: Number(incoming?.saldoVirtual ?? incoming?.saldoFisico ?? stock?.quantidade ?? 0) || 0,
+        saldoVirtual: Number(incoming?.saldoVirtual ?? incoming?.saldoFisico ?? stock?.quantidade ?? 0) || 0,
+      };
+      const existingIndex = existingDeposits.findIndex(deposit => Number(deposit?.id ?? deposit?.deposito?.id) === incomingId);
+      deposits = existingIndex >= 0
+        ? existingDeposits.map((deposit, depositIndex) => depositIndex === existingIndex ? { ...deposit, ...patch } : deposit)
+        : [...existingDeposits, patch];
+    }
+  }
+
+  const saldoVirtualTotal = Number(stock?.saldoVirtualTotal ?? current.estoque?.saldoVirtualTotal ?? deposits.reduce((sum, item) => sum + Number(item?.saldo ?? item?.quantidade ?? 0), 0)) || 0;
+  record.products[index] = {
+    ...current,
+    stock: saldoVirtualTotal,
+    available: saldoVirtualTotal > 0 && current.active,
+    estoque: {
+      ...current.estoque,
+      saldoVirtualTotal,
+      depositos: deposits,
+    },
+  };
+  await writeCatalogIndex(record.products);
 }
 
 function deepMerge(base: any, patch: any): any {
@@ -106,16 +213,17 @@ export async function saveProductMirror(id: number, data: any) {
   const current = await readRecord(productKey(id));
   const merged = current?.data ? deepMerge(current.data, data) : data;
   await writeRecord(productKey(id), id, merged);
+  await upsertCatalogIndex(merged);
 }
 
 export async function saveStockMirror(id: number, data: any) {
   if (!Number.isInteger(id) || id <= 0 || !data) return;
   await writeRecord(stockKey(id), id, data);
+  await updateCatalogIndexStock(id, data);
 }
 
 export async function deleteProductMirror(id: number) {
   if (!Number.isInteger(id) || id <= 0) return;
-  // R2 storage wrapper intentionally has no delete primitive in the current architecture.
-  // Tombstoning keeps deleted IDs from being treated as live data while avoiding a new storage API in this phase.
   await writeRecord(productKey(id), id, { __deleted: true });
+  await removeCatalogIndex(id);
 }

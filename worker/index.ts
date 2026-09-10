@@ -12,6 +12,7 @@ import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
 import { GET as customersGet, POST as customersPost } from '../api/customers/[action].js';
 import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '../api/pontos/[action].js';
+import { catalogIndexResponse } from '../src/server/catalog-index-service.js';
 
 type R2ObjectLike = { body: ReadableStream<Uint8Array> | null };
 type R2BucketLike = { get(key: string): Promise<R2ObjectLike | null>; put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream<Uint8Array>, options?: unknown): Promise<unknown> };
@@ -31,7 +32,11 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   if (path === '/api/bling/order' && request.method === 'POST') return blingOrderPost(request);
   if (path === '/api/bling/pdv-report') { if (request.method === 'GET') return pdvReportGet(request); if (request.method === 'POST') return pdvReportPost(request); }
   if (path === '/api/bling/pdv-sale') { if (request.method === 'GET') return pdvSaleGet(request); if (request.method === 'POST') return pdvSalePost(request); }
-  if (path === '/api/bling/products' && request.method === 'GET') return blingProductsGet(request);
+  if (path === '/api/bling/products' && request.method === 'GET') {
+    const indexed = await catalogIndexResponse(request);
+    if (indexed) return indexed;
+    return blingProductsGet(request);
+  }
   if (path === '/api/bling/product-detail' && request.method === 'GET') return blingProductDetailGet(request);
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
   if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost(request);

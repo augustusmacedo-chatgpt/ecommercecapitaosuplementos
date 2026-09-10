@@ -34,9 +34,11 @@ jobs:
         run: |
           set -euo pipefail
           matches="$(grep -RIn --include='*.ts' -E 'https://api\\.bling\\.com\\.br/Api/v3|https://bling\\.com\\.br/Api/v3' api src/server || true)"
-          unexpected="$(printf '%s\\n' "$matches" | grep -vE '^(api/bling/callback\\.ts|src/server/bling-client\\.ts|src/server/bling-gateway\\.ts):' || true)"
-          if [ -n "$unexpected" ]; then
-            echo "Encontradas URLs diretas da API do Bling fora da fronteira autorizada:"
-            printf '%s\\n' "$unexpected"
-            exit 1
+          if [ -n "$matches" ]; then
+            unexpected="$(printf '%s\\n' "$matches" | grep -vE '^(api/bling/callback\\.ts|src/server/bling-client\\.ts|src/server/bling-gateway\\.ts):' || true)"
+            if [ -n "$unexpected" ]; then
+              echo "Encontradas URLs diretas da API do Bling fora da fronteira autorizada:"
+              printf '%s\\n' "$unexpected"
+              exit 1
+            fi
           fi
