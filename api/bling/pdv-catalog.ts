@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const query = (url.searchParams.get('busca') || url.searchParams.get('q') || '').trim().toLocaleLowerCase('pt-BR');
-  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limite') || 100) || 100));
+  const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get('limite') || 1000) || 1000));
 
   const index = await loadCatalogIndex();
   if (!index?.length) {
