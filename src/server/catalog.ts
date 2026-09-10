@@ -185,7 +185,7 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
     situacao: active ? 'A' : 'I',
     estoque: {
       saldoVirtualTotal: number(product?.estoque?.saldoVirtualTotal ?? product?.saldoVirtualTotal, stock),
-      depositos,
+      depositos: deposits,
     },
   };
 }
