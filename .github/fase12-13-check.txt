@@ -1,1 +1,0 @@
-F12/F13 validation is executed by the repository workflow on push and pull request.
