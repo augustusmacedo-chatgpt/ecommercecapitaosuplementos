@@ -7,6 +7,7 @@ on:
       - feat/cloudflare-migration
       - 'fix/fase*'
       - 'feat/fase*'
+      - release/capitao-retaguarda-v1
   pull_request:
   workflow_dispatch:
 
