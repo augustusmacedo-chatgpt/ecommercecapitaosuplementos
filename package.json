@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
-    "catalog:verify": "node scripts/verify-catalog-architecture.mjs"
+    "catalog:verify": "node scripts/verify-catalog-architecture.mjs",
+    "preflight": "node scripts/verify-production-preflight.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

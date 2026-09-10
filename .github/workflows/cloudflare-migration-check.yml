@@ -29,6 +29,8 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Preflight production
+        run: npm run preflight
       - name: Verify catalog architecture
         run: npm run catalog:verify
       - name: Verify Bling gateway boundary
