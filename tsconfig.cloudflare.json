@@ -21,6 +21,8 @@
     "api/bling/catalog-sync.ts",
     "api/bling/catalog-sync-guarded.ts",
     "api/bling/catalog-reconcile.ts",
+    "api/bling/catalog-health.ts",
+    "src/server/catalog-sync-lock.ts",
     "api/customers/[action].ts",
     "api/pontos/[action].ts",
     "worker/index.ts"
