@@ -28,7 +28,6 @@ export type CatalogProduct = {
   images: CatalogImage[];
   source: 'bling';
   updatedAt: string;
-  // Compatibility aliases while the storefront transitions to the internal model.
   nome: string;
   codigo: string;
   codigoBarras?: string;
@@ -127,7 +126,10 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
   const thumbnailImage = images.find(item => item.type === 'thumbnail')?.url;
   const deposits = normalizeCatalogDeposits(product);
   const stock = catalogStock(product);
-  const active = text(product?.situacao).toUpperCase() === 'A' || product?.situacao === true || !product?.situacao;
+  const situation = text(product?.situacao).toUpperCase();
+  const active = typeof product?.active === 'boolean'
+    ? product.active
+    : situation === 'A';
   const priceValue = number(product?.preco, NaN);
   const price = Number.isFinite(priceValue) ? priceValue : null;
   const category = text(product?.categoria?.nome) || text(product?.categoria) || 'Suplementos';
@@ -182,7 +184,7 @@ export function normalizeCatalogProduct(product: any): CatalogProduct {
     imagemOriginal: originalImage,
     imagemMiniatura: thumbnailImage,
     categoria: { nome: category },
-    situacao: active ? 'A' : 'I',
+    situacao: active ? 'A' : (situation || 'I'),
     estoque: {
       saldoVirtualTotal: number(product?.estoque?.saldoVirtualTotal ?? product?.saldoVirtualTotal, stock),
       depositos: deposits,
