@@ -18,6 +18,9 @@
     "api/bling/products.ts",
     "api/bling/status.ts",
     "api/bling/webhook.ts",
+    "api/bling/catalog-sync.ts",
+    "api/bling/catalog-sync-guarded.ts",
+    "api/bling/catalog-reconcile.ts",
     "api/customers/[action].ts",
     "api/pontos/[action].ts",
     "worker/index.ts"
