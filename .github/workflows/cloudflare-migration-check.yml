@@ -29,6 +29,8 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Verify catalog architecture
+        run: npm run catalog:verify
       - name: Verify Bling gateway boundary
         shell: bash
         run: |
