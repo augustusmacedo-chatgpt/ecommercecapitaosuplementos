@@ -17,12 +17,12 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "vite": "latest",
-    "@types/react": "latest"
+    "vite": "latest"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.3",
     "@types/node": "latest",
+    "@types/react": "latest",
     "@types/react-dom": "latest",
     "typescript": "latest",
     "wrangler": "4.129.0"
