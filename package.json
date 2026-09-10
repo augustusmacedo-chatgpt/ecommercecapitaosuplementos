@@ -9,19 +9,20 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
-    "catalog:verify": "node scripts/verify-catalog-architecture.mjs"
+    "catalog:verify": "node scripts/verify-catalog-architecture.mjs",
+    "preflight": "node scripts/verify-production-preflight.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "@types/react": "latest"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.3",
     "@types/node": "latest",
-    "@types/react": "latest",
     "@types/react-dom": "latest",
     "typescript": "latest",
     "wrangler": "4.129.0"
