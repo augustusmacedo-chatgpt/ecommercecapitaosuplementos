@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import { Activity, ArrowLeft, Database, Play, RefreshCw, ShieldCheck } from 'lucide-react';
 
 type Health = {
@@ -13,8 +13,8 @@ type Health = {
 
 type ActionResult = { ok?: boolean; message?: string; data?: unknown };
 
-const card: React.CSSProperties = { border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: 18, background: 'rgba(255,255,255,.03)' };
-const button: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: '10px 14px', background: 'rgba(255,255,255,.06)', color: 'inherit', cursor: 'pointer', fontWeight: 700 };
+const card: CSSProperties = { border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: 18, background: 'rgba(255,255,255,.03)' };
+const button: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: '10px 14px', background: 'rgba(255,255,255,.06)', color: 'inherit', cursor: 'pointer', fontWeight: 700 };
 
 async function readJson(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
