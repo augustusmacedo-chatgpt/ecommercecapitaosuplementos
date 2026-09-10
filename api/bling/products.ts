@@ -2,6 +2,7 @@ import { json } from '../../src/server/bling-shared.js';
 import { blingFetch } from '../../src/server/bling-gateway.js';
 import { matchesCatalogQuery, normalizeCatalogProduct, type CatalogProduct } from '../../src/server/catalog.js';
 import { get, put, hasStorage } from '../../src/server/storage.js';
+import { loadCatalogIndex } from '../../src/server/bling-domain-store.js';
 
 const BLING_PRODUCTS_URL = '/produtos';
 const CATALOG_CACHE_KEY = 'bling/catalog-last-good.json';
@@ -80,6 +81,11 @@ function filterProducts(products: CatalogProduct[], url: URL) {
     if (inStockOnly && product.stock <= 0) return false;
     return true;
   });
+}
+
+function paginateProducts(products: CatalogProduct[], page: number, limit: number) {
+  const start = Math.max(0, (page - 1) * limit);
+  return products.slice(start, start + limit);
 }
 
 export async function GET(request: Request) {
@@ -249,6 +255,35 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limite') || 20) || 20));
     const all = url.searchParams.get('todos') === '1';
 
+    // O catálogo comum passa a ler o índice persistente do R2 primeiro.
+    // Isso elimina a consulta recorrente ao Bling para navegação, busca,
+    // filtros e paginação. Rotas críticas de detalhe/estoque continuam
+    // oficiais sob demanda e usando o gateway.
+    const indexedCatalog = await loadCatalogIndex();
+    if (indexedCatalog?.length) {
+      const filtered = filterProducts(indexedCatalog, url);
+      const pageProducts = all ? filtered : paginateProducts(filtered, requestedPage, limit);
+      return json(
+        {
+          products: pageProducts,
+          total: filtered.length,
+          page: all ? 1 : requestedPage,
+          limit,
+          complete: true,
+          source: 'r2-index',
+          stale: false,
+          filters: {
+            query: url.searchParams.get('busca') || url.searchParams.get('q') || '',
+            category: url.searchParams.get('categoria') || '',
+            activeOnly: url.searchParams.get('ativos') === '1',
+            inStockOnly: url.searchParams.get('estoque') === '1',
+          },
+        },
+        200,
+        { 'Cache-Control': 'no-store' },
+      );
+    }
+
     let products: CatalogProduct[] = [];
     let page = requestedPage;
     let complete = true;
@@ -308,12 +343,15 @@ export async function GET(request: Request) {
     const cached = await readLastGoodCatalog();
     if (cached?.products.length) {
       const filtered = filterProducts(cached.products, url);
+      const requestedPage = Math.max(1, Number(url.searchParams.get('pagina') || 1) || 1);
+      const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limite') || 20) || 20));
+      const pageProducts = url.searchParams.get('todos') === '1' ? filtered : paginateProducts(filtered, requestedPage, limit);
       return json(
         {
-          products: filtered,
+          products: pageProducts,
           total: filtered.length,
-          page: 1,
-          limit: Math.min(100, Math.max(1, Number(url.searchParams.get('limite') || 20) || 20)),
+          page: url.searchParams.get('todos') === '1' ? 1 : requestedPage,
+          limit,
           complete: true,
           source: 'cache',
           savedAt: cached.savedAt || null,
