@@ -3,10 +3,10 @@ import { Activity, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
 
 type Health = {
   storage?: { configured?: boolean };
-  index?: { products?: number; available?: boolean };
+  catalog?: { indexedProducts?: number };
   sync?: { complete?: boolean; nextPage?: number; pagesProcessed?: number; productsProcessed?: number };
-  lock?: { active?: boolean; expiresAt?: number };
-  rateLimit?: { active?: boolean; expiresAt?: number; period?: string };
+  concurrency?: { active?: boolean; expiresAt?: number };
+  rateLimit?: { cooldownActive?: boolean; expiresAt?: number; period?: string | null };
 };
 
 type SyncResult = { ok?: boolean; complete?: boolean; state?: { nextPage?: number; pagesProcessed?: number; productsProcessed?: number }; products?: number; message?: string; error?: string };
@@ -39,7 +39,7 @@ export default function AdminCatalogControl() {
     setMessage('');
     try {
       const suffix = restart ? '?reiniciar=1&paginas=5&limite=100' : '?paginas=5&limite=100';
-      const data = await json<SyncResult>(await fetch('/api/bling/catalog-sync', { method: 'POST' + suffix }));
+      const data = await json<SyncResult>(await fetch('/api/bling/catalog-sync' + suffix, { method: 'POST', cache: 'no-store' }));
       setMessage(data.message || 'Lote de sincronização concluído.');
       await refresh();
     } catch (e) {
@@ -62,15 +62,15 @@ export default function AdminCatalogControl() {
       <button onClick={refresh} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> ATUALIZAR</button>
     </div>
     <div className="qg-cards">
-      <article><small>ÍNDICE R2</small><strong>{health?.index?.products ?? '—'}</strong><span>{health?.index?.available ? 'disponível' : 'indisponível'}</span></article>
+      <article><small>ÍNDICE R2</small><strong>{health?.catalog?.indexedProducts ?? '—'}</strong><span>{health?.catalog ? 'produtos indexados' : 'sem leitura'}</span></article>
       <article><small>SINCRONIZAÇÃO</small><strong>{syncState?.complete ? 'CONCLUÍDA' : syncState ? `PÁG. ${syncState.nextPage ?? 1}` : '—'}</strong><span>{syncState?.productsProcessed ?? 0} produtos processados</span></article>
-      <article><small>LOCK</small><strong>{health?.lock?.active ? 'ATIVO' : 'LIVRE'}</strong><span>{health?.lock?.active ? 'execução protegida' : 'nenhuma execução concorrente'}</span></article>
-      <article><small>RATE LIMIT</small><strong>{health?.rateLimit?.active ? 'COOLDOWN' : 'NORMAL'}</strong><span>{health?.rateLimit?.period || 'sem bloqueio'}</span></article>
+      <article><small>LOCK</small><strong>{health?.concurrency?.active ? 'ATIVO' : 'LIVRE'}</strong><span>{health?.concurrency?.active ? 'execução protegida' : 'nenhuma execução concorrente'}</span></article>
+      <article><small>RATE LIMIT</small><strong>{health?.rateLimit?.cooldownActive ? 'COOLDOWN' : 'NORMAL'}</strong><span>{health?.rateLimit?.period || 'sem bloqueio'}</span></article>
     </div>
     {(message || error) && <div className={error ? 'qg-error' : 'qg-empty'}>{error || message}</div>}
     <div className="qg-filters" style={{ marginTop: 14 }}>
-      <button onClick={() => sync(false)} disabled={loading || health?.lock?.active}><ShieldCheck size={15} /> {loading ? 'SINCRONIZANDO...' : 'SINCRONIZAR LOTE'}</button>
-      <button onClick={() => sync(true)} disabled={loading || health?.lock?.active}><RotateCcw size={15} /> NOVO SNAPSHOT</button>
+      <button onClick={() => sync(false)} disabled={loading || health?.concurrency?.active}><ShieldCheck size={15} /> {loading ? 'SINCRONIZANDO...' : 'SINCRONIZAR LOTE'}</button>
+      <button onClick={() => sync(true)} disabled={loading || health?.concurrency?.active}><RotateCcw size={15} /> NOVO SNAPSHOT</button>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, opacity: .75 }}><Activity size={14} /> {health?.storage?.configured ? 'R2 configurado' : 'R2 não configurado'}</span>
     </div>
   </section>;
