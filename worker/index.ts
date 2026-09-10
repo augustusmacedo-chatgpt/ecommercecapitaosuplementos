@@ -10,7 +10,8 @@ import { GET as blingProductDetailGet } from '../api/bling/product-detail.js';
 import { GET as blingStatusGet } from '../api/bling/status.js';
 import { POST as blingResetPost } from '../api/bling/reset.js';
 import { GET as blingWebhookGet, POST as blingWebhookPost } from '../api/bling/webhook.js';
-import { GET as catalogSyncGet, POST as catalogSyncPost } from '../api/bling/catalog-sync.js';
+import { GET as catalogSyncGet, POST as catalogSyncPost } from '../api/bling/catalog-sync-guarded.js';
+import { GET as catalogReconcileGet, POST as catalogReconcilePost } from '../api/bling/catalog-reconcile.js';
 import { GET as customersGet, POST as customersPost } from '../api/customers/[action].js';
 import { GET as pontosGet, POST as pontosPost, DELETE as pontosDelete } from '../api/pontos/[action].js';
 import { catalogIndexResponse } from '../src/server/catalog-index-service.js';
@@ -40,6 +41,7 @@ async function dispatch(request: Request, ctx: ExecutionCtx): Promise<Response> 
   }
   if (path === '/api/bling/product-detail' && request.method === 'GET') return blingProductDetailGet(request);
   if (path === '/api/bling/catalog-sync') { if (request.method === 'GET') return catalogSyncGet(request); if (request.method === 'POST') return catalogSyncPost(request); }
+  if (path === '/api/bling/catalog-reconcile') { if (request.method === 'GET') return catalogReconcileGet(request); if (request.method === 'POST') return catalogReconcilePost(request); }
   if (path === '/api/bling/status' && request.method === 'GET') return blingStatusGet(request);
   if (path === '/api/bling/reset' && request.method === 'POST') return blingResetPost(request);
   if (path === '/api/bling/webhook') { if (request.method === 'GET') return blingWebhookGet(); if (request.method === 'POST') return blingWebhookPost(request, ctx); }
